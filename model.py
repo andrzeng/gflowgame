@@ -1,6 +1,67 @@
+'''
+
+**********************************************
+
+**********************************************
+
+**********************************************
+
+**********************************************
+**********************************************
+**********************************************
+**********************************************
+**********************************************
+
+
+ADD RELU!!!! DONT MAKE THIS SILLY MISTAKE AGAIN
+
+**********************************************
+**********************************************
+********************************************** YOU SILLY
+**********************************************GOOSE
+**********************************************
+**********************************************
+**********************************************
+
+
+Fix the heads issue as well
+
+add dropout
+
+compare with https://github.com/TranQuocTrinh/transformer/blob/main/models.py line by line
+
+
+worst case scenario: just copy someone elses code
+
+
+'''
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import torch
 import torch.nn as nn
 import math
+
+class Norm(nn.Module):
+    def __init__(self, d_embed):
+        super(Norm, self).__init__()
+        self.norm = nn.LayerNorm(d_embed)
+
+    def forward(self, x):
+        return self.norm(x)
 
 class SelfAttention(nn.Module):
     def __init__(self, d_embed):
@@ -89,24 +150,28 @@ class RMSNorm(torch.nn.Module):
         return output * self.weight
 
 class EncoderLayer(nn.Module):
-    def __init__(self, d_embed, n_heads):
+    def __init__(self, d_embed, d_ff, n_heads):
         super().__init__()
         self.mha = MultiheadAttention(d_embed, n_heads)
-        self.attention_norm = nn.LayerNorm(d_embed) # RMSNorm(d_embed)
-        self.feedforward_norm = nn.LayerNorm(d_embed) # RMSNorm(d_embed)
-        # self.layernorm = nn.LayerNorm(d_embed)
-        self.ff = nn.Linear(d_embed, d_embed)
+        self.attention_norm = Norm(d_embed) # RMSNorm(d_embed)
+        self.feedforward_norm = Norm(d_embed) # RMSNorm(d_embed)
+        
+        self.feed_forward = nn.Sequential(
+            nn.Linear(d_embed, d_ff),
+            nn.ReLU(),
+            nn.Linear(d_ff, d_embed)
+        )
 
     def forward(self, embeddings):
         attention_output = self.mha(embeddings)
         ln_output = self.attention_norm(embeddings + attention_output)
-        ff_out = self.ff(ln_output)
+        ff_out = self.feed_forward(ln_output)
         return self.feedforward_norm(ln_output + ff_out)
     
 class Encoder(nn.Module):
-    def __init__(self, d_embed, n_heads, n_encoders):
+    def __init__(self, d_embed, d_ff, n_heads, n_encoders):
         super().__init__()
-        self.encoders = nn.ModuleList([EncoderLayer(d_embed, n_heads) for _ in range(n_encoders)])
+        self.encoders = nn.ModuleList([EncoderLayer(d_embed, d_ff, n_heads) for _ in range(n_encoders)])
     
     def forward(self, embeddings):
         for encoder in self.encoders:
@@ -115,33 +180,37 @@ class Encoder(nn.Module):
         return embeddings
     
 class DecoderLayer(nn.Module):
-    def __init__(self, d_embed, n_heads):
+    def __init__(self, d_embed, d_ff, n_heads):
         super().__init__()
         self.masked_mha = MultiheadAttention(d_embed, n_heads)
-        self.attention_norm = nn.LayerNorm(d_embed)# RMSNorm(d_embed)
-        self.feedforward_norm1 = nn.LayerNorm(d_embed)# RMSNorm(d_embed)
-        self.feedforward_norm2 = nn.LayerNorm(d_embed)# RMSNorm(d_embed)
-        # self.layernorm = nn.LayerNorm(d_embed)
+        self.attention_norm = Norm(d_embed)# RMSNorm(d_embed)
+        self.feedforward_norm1 = Norm(d_embed)# RMSNorm(d_embed)
+        self.feedforward_norm2 = Norm(d_embed)# RMSNorm(d_embed)
+        
         self.cross_mha = MultiheadCrossAttention(d_embed, n_heads)
-        self.ff = nn.Linear(d_embed, d_embed)
-
+        self.feed_forward = nn.Sequential(
+                    nn.Linear(d_embed, d_ff),
+                    nn.ReLU(),
+                    nn.Linear(d_ff, d_embed)
+                )
     def forward(self, decoder_embeddings, encoder_embeddings):
         B, L, D = decoder_embeddings.shape
 
         mask = torch.tril(torch.ones(L,L))
         mask[mask == 0] = -1e20
         mask[mask == 1] = 0
+        mask=None
         masked_mha_out = self.masked_mha(decoder_embeddings, mask=mask)
         ln_out = self.feedforward_norm1(masked_mha_out + decoder_embeddings)
         cross_mha_out = self.cross_mha(encoder_embeddings, ln_out)
         ln_out = self.attention_norm(cross_mha_out + ln_out)
-        ff_out = self.ff(ln_out)
+        ff_out = self.feed_forward(ln_out)
         return self.feedforward_norm2(ff_out + ln_out)
     
 class Decoder(nn.Module):
-    def __init__(self, d_embed, n_heads, n_decoders):
+    def __init__(self, d_embed, d_ff, n_heads, n_decoders):
         super().__init__()
-        self.decoders = nn.ModuleList([DecoderLayer(d_embed, n_heads) for _ in range(n_decoders)])
+        self.decoders = nn.ModuleList([DecoderLayer(d_embed, d_ff, n_heads) for _ in range(n_decoders)])
     
     def forward(self, decoder_embeddings, encoder_embeddings):
         for decoder in self.decoders:
@@ -167,13 +236,13 @@ class PositionalEncoding(nn.Module):
         return x + self.pe[:,:x.size(1)]
     
 class BoardTransformer(nn.Module):
-    def __init__(self, d_embed, n_heads, n_encoders, n_decoders, vocab_size):
+    def __init__(self, d_embed, d_ff, n_heads, n_encoders, n_decoders, vocab_size):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, d_embed)
         self.board_embedding = nn.Embedding(16, d_embed)
         self.pe = PositionalEncoding(d_embed)
-        self.encoder = Encoder(d_embed, n_heads, n_encoders)
-        self.decoder = Decoder(d_embed, n_heads, n_decoders)
+        self.encoder = Encoder(d_embed, d_ff, n_heads, n_encoders)
+        self.decoder = Decoder(d_embed, d_ff, n_heads, n_decoders)
         self.linear = nn.Linear(d_embed, vocab_size)
 
     def forward(self, board, move_seq):
@@ -188,13 +257,19 @@ class BoardTransformer(nn.Module):
         return encoder_out, prelogits.softmax(dim=2)     
 
 class BoardGFLowNet(nn.Module):
-    def __init__(self, d_embed, n_heads, encoder_layers, decoder_layers, vocab_size):
+    def __init__(self, d_embed, d_ff, n_heads, encoder_layers, decoder_layers, vocab_size):
         super().__init__()
-        self.transformer = BoardTransformer(d_embed, n_heads, encoder_layers, decoder_layers, vocab_size)
-        self.logZ_predictor = nn.Linear(d_embed * 16, 1)
+        self.transformer = BoardTransformer(d_embed, d_ff, n_heads, encoder_layers, decoder_layers, vocab_size)
+        self.logZ_predictor = nn.Sequential(
+            nn.Linear(d_embed * 16, 16),
+            nn.ReLU(),
+            nn.Linear(16, 8),
+            nn.ReLU(),
+            nn.Linear(8,1),
+        )
 
     def forward(self, boards, moves):
         encoder_out, logits = self.transformer(boards, moves)
         encoder_out = encoder_out.flatten(start_dim=1)
-        predicted_logZ = self.logZ_predictor(encoder_out).sigmoid() * 10
+        predicted_logZ = self.logZ_predictor(encoder_out)
         return predicted_logZ, logits

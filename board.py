@@ -21,7 +21,7 @@ def create_action_mask(board):
     return mask
 
 def move(board, dir):
-    new_board = board.clone()
+    new_board = board
     gap_coord = torch.where(new_board == 0)
     if(dir == DIR_UP and gap_coord[0] > 0):
         new_board[gap_coord[0], gap_coord[1]] = new_board[gap_coord[0]-1, gap_coord[1]] 
@@ -43,7 +43,14 @@ def random_board():
         board = move(board, random.randint(2,5))
     return board
 
-def get_reward(boards):
+def get_reward(boards, eps=1e-6):
     mismatch = boards - torch.arange(0, 16).reshape(4,4).expand_as(boards)
     mismatch = mismatch == 0
-    return (mismatch.flatten(1).count_nonzero(1) + 1)/17
+
+    matching = (mismatch.flatten(1).count_nonzero(1))
+    reward = max(0, matching - 6)
+    reward = reward ** 2
+    reward = reward + 1
+    return torch.Tensor([reward])
+    # return (mismatch.flatten(1).count_nonzero(1)) ** 2 + 1
+    return (mismatch.flatten(1).count_nonzero(1) + eps)/(16 + eps)

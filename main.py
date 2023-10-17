@@ -4,11 +4,11 @@ from board import random_board, get_reward, move, create_action_mask
 import wandb
 from torch.distributions.categorical import Categorical
 import argparse
+import random
 
 def loss_fn(predicted_logZ, reward, forward_probabilities):
     log_Pf = sum(list(map(torch.log, forward_probabilities)))
     inner = predicted_logZ + log_Pf - torch.log(reward)
-    # inner = log_Pf - torch.log(reward)
     return inner ** 2
 
 def main():
@@ -31,12 +31,13 @@ def main():
 if __name__ == '__main__':
     # torch.set_printoptions(precision=1)
 
-    lr = 1e-3
-    decoder_layers = 2
-    encoder_layers = 2
+    lr = 1e-4
+    decoder_layers = 4
+    encoder_layers = 4
     embed_dim = 8
+    d_ff = 8
     n_heads = 4
-    batch_size = 16
+    batch_size = 32
     '''wandb.login()
     wandb.init(
         # set the wandb project where this run will be logged
@@ -52,7 +53,7 @@ if __name__ == '__main__':
     )
     '''
     
-    gfn = BoardGFLowNet(embed_dim, n_heads, encoder_layers, decoder_layers, 6)
+    gfn = BoardGFLowNet(embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6)
     optimizer = torch.optim.AdamW(gfn.parameters(), lr=lr)
 
     loss_history = []
@@ -74,14 +75,19 @@ if __name__ == '__main__':
                 logits = logits[0, -1, :]
                 mask = create_action_mask(boards[0])
                 logits = torch.softmax(mask * logits, dim=0)
-                new_moves = Categorical(probs=logits.squeeze()).sample()
-                new_moves = torch.Tensor([new_moves]).type(torch.LongTensor)
-                # new_moves = torch.multinomial(logits.squeeze(), num_samples=1)
-                if(new_moves == 0):
-                    continue
 
+                if(random.randint(0, 9) >= 0):               
+                    new_moves = Categorical(probs=logits.squeeze()).sample()
+                    new_moves = torch.Tensor([new_moves]).type(torch.LongTensor)
+                else:
+                    new_moves = torch.Tensor([logits.squeeze().argmax()]).type(torch.LongTensor)
+                    # print(logits.squeeze())
+                    # print(new_moves)
+                
+                
                 forward_probabilities.append(logits[new_moves])
                 moves = torch.cat([moves, new_moves.unsqueeze(0)], dim=1)
+                
                 boards = boards.clone()
                 for index, board in enumerate(boards):
                     boards[index] = move(board, new_moves[index])
@@ -91,9 +97,11 @@ if __name__ == '__main__':
             reward = get_reward(boards)
             total_reward += reward
             loss = loss_fn(starting_logz, reward, forward_probabilities)
-            loss.backward(retain_graph=True)
+            loss.backward(retain_graph=False)
             total_loss += loss
 
+        for param in gfn.logZ_predictor.parameters():
+            param.grad *= 10
         optimizer.step()
         optimizer.zero_grad()
         # wandb.log({'batch': batch, 'loss': (total_loss/batch_size).item(), 'reward': (total_reward/batch_size).item()})

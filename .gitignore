@@ -4,3 +4,5 @@
 /gpt4_conversations_2.npy
 /train-00000-of-00001-cced8514c7ed782a.parquet
 /unused.py
+wandb
+.gitignore
