@@ -3,7 +3,6 @@ import torch.nn as nn
 import math
 
 class SelfAttention(nn.Module):
-    
     def __init__(self, d_embed):
         super().__init__()
         self.Wq = nn.Linear(d_embed, d_embed)
@@ -12,20 +11,29 @@ class SelfAttention(nn.Module):
         self.d_embed = d_embed
 
     def forward(self, embeddings, mask=None):
+        #print('embeddings shape: ', embeddings.shape)
         q = self.Wq(embeddings)
         k = self.Wk(embeddings)
         v = self.Wv(embeddings)
-        
+        # print('q.shape: ',q.shape)
         attention = torch.matmul(q, k.transpose(2,1)) # transpose the embedding and sequence dims
+        
         if(mask != None):
-            attention = attention * mask
-        attention = attention / math.sqrt(self.d_embed)
-        attention = attention.softmax(dim=1)
+            #print('Attention before mask:\n',attention)
+            attention = attention + mask
 
+        #if(mask != None):
+            #print('Masked attention:\n', attention)
+            #print('Mask:\n', mask)
+
+        attention = attention / math.sqrt(self.d_embed)
+        attention = attention.softmax(dim=-1)
+        #if(mask != None):
+            #print('Attention after softmax:\n',attention)
+        
         return attention @ v
     
 class MultiheadAttention(nn.Module):
-
     def __init__(self, d_embed, n_heads):
         super().__init__()
         self.heads = nn.ModuleList([SelfAttention(d_embed) for _ in range(n_heads)])
@@ -36,7 +44,6 @@ class MultiheadAttention(nn.Module):
         return self.combine(head_outputs)
     
 class CrossAttention(nn.Module):
-    
     def __init__(self, d_embed):
         super().__init__()
         self.Wq = nn.Linear(d_embed, d_embed)
@@ -51,14 +58,13 @@ class CrossAttention(nn.Module):
         
         attention = torch.matmul(q, k.transpose(2,1)) # transpose the embedding and sequence dims
         if(mask != None):
-            attention = attention * mask
+            attention = attention + mask
         attention = attention / math.sqrt(self.d_embed)
-        attention = attention.softmax(dim=1)
+        attention = attention.softmax(dim=-1)
 
         return attention @ v
     
 class MultiheadCrossAttention(nn.Module):
-
     def __init__(self, d_embed, n_heads):
         super().__init__()
         self.heads = nn.ModuleList([CrossAttention(d_embed) for _ in range(n_heads)])
@@ -67,23 +73,37 @@ class MultiheadCrossAttention(nn.Module):
     def forward(self, encoder_embs, decoder_embs, mask=None):
         head_outputs = torch.concat([head(encoder_embs, decoder_embs, mask) for head in self.heads], dim=2)
         return self.combine(head_outputs)
-    
+
+
+class RMSNorm(torch.nn.Module):
+    def __init__(self, dim: int, eps: float = 1e-6):
+        super().__init__()
+        self.eps = eps
+        self.weight = nn.Parameter(torch.ones(dim))
+
+    def _norm(self, x):
+        return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
+
+    def forward(self, x):
+        output = self._norm(x.float()).type_as(x)
+        return output * self.weight
+
 class EncoderLayer(nn.Module):
-    
     def __init__(self, d_embed, n_heads):
         super().__init__()
         self.mha = MultiheadAttention(d_embed, n_heads)
-        self.layernorm = nn.LayerNorm(d_embed)
+        self.attention_norm = nn.LayerNorm(d_embed) # RMSNorm(d_embed)
+        self.feedforward_norm = nn.LayerNorm(d_embed) # RMSNorm(d_embed)
+        # self.layernorm = nn.LayerNorm(d_embed)
         self.ff = nn.Linear(d_embed, d_embed)
 
     def forward(self, embeddings):
         attention_output = self.mha(embeddings)
-        ln_output = self.layernorm(embeddings + attention_output)
+        ln_output = self.attention_norm(embeddings + attention_output)
         ff_out = self.ff(ln_output)
-        return self.layernorm(ln_output + ff_out)
+        return self.feedforward_norm(ln_output + ff_out)
     
 class Encoder(nn.Module):
-
     def __init__(self, d_embed, n_heads, n_encoders):
         super().__init__()
         self.encoders = nn.ModuleList([EncoderLayer(d_embed, n_heads) for _ in range(n_encoders)])
@@ -95,11 +115,13 @@ class Encoder(nn.Module):
         return embeddings
     
 class DecoderLayer(nn.Module):
-    
     def __init__(self, d_embed, n_heads):
         super().__init__()
         self.masked_mha = MultiheadAttention(d_embed, n_heads)
-        self.layernorm = nn.LayerNorm(d_embed)
+        self.attention_norm = nn.LayerNorm(d_embed)# RMSNorm(d_embed)
+        self.feedforward_norm1 = nn.LayerNorm(d_embed)# RMSNorm(d_embed)
+        self.feedforward_norm2 = nn.LayerNorm(d_embed)# RMSNorm(d_embed)
+        # self.layernorm = nn.LayerNorm(d_embed)
         self.cross_mha = MultiheadCrossAttention(d_embed, n_heads)
         self.ff = nn.Linear(d_embed, d_embed)
 
@@ -107,15 +129,16 @@ class DecoderLayer(nn.Module):
         B, L, D = decoder_embeddings.shape
 
         mask = torch.tril(torch.ones(L,L))
+        mask[mask == 0] = -1e20
+        mask[mask == 1] = 0
         masked_mha_out = self.masked_mha(decoder_embeddings, mask=mask)
-        ln_out = self.layernorm(masked_mha_out + decoder_embeddings)
+        ln_out = self.feedforward_norm1(masked_mha_out + decoder_embeddings)
         cross_mha_out = self.cross_mha(encoder_embeddings, ln_out)
-        ln_out = self.layernorm(cross_mha_out + ln_out)
+        ln_out = self.attention_norm(cross_mha_out + ln_out)
         ff_out = self.ff(ln_out)
-        return self.layernorm(ff_out + ln_out)
+        return self.feedforward_norm2(ff_out + ln_out)
     
 class Decoder(nn.Module):
-
     def __init__(self, d_embed, n_heads, n_decoders):
         super().__init__()
         self.decoders = nn.ModuleList([DecoderLayer(d_embed, n_heads) for _ in range(n_decoders)])
@@ -126,7 +149,6 @@ class Decoder(nn.Module):
         return decoder_embeddings
     
 class PositionalEncoding(nn.Module):
-
     def __init__(self, d_model: int, max_len: int = 5000):
         super().__init__()
         position = torch.arange(max_len).unsqueeze(1)
@@ -145,7 +167,6 @@ class PositionalEncoding(nn.Module):
         return x + self.pe[:,:x.size(1)]
     
 class BoardTransformer(nn.Module):
-    
     def __init__(self, d_embed, n_heads, n_encoders, n_decoders, vocab_size):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, d_embed)
@@ -156,9 +177,24 @@ class BoardTransformer(nn.Module):
         self.linear = nn.Linear(d_embed, vocab_size)
 
     def forward(self, board, move_seq):
-        board_embs = self.board_embedding(board.flatten(start_dim=1))
+        board = board.flatten(start_dim=1)
+        board_embs = self.board_embedding(board)
+        # board_embs = torch.randn_like(board_embs)
         encoder_out = self.encoder(board_embs)
+
         decoder_emb = self.pe(self.embedding(move_seq))
         decoder_out = self.decoder(decoder_emb, encoder_out)
         prelogits = self.linear(decoder_out)
-        return prelogits.softmax(dim=2)     
+        return encoder_out, prelogits.softmax(dim=2)     
+
+class BoardGFLowNet(nn.Module):
+    def __init__(self, d_embed, n_heads, encoder_layers, decoder_layers, vocab_size):
+        super().__init__()
+        self.transformer = BoardTransformer(d_embed, n_heads, encoder_layers, decoder_layers, vocab_size)
+        self.logZ_predictor = nn.Linear(d_embed * 16, 1)
+
+    def forward(self, boards, moves):
+        encoder_out, logits = self.transformer(boards, moves)
+        encoder_out = encoder_out.flatten(start_dim=1)
+        predicted_logZ = self.logZ_predictor(encoder_out).sigmoid() * 10
+        return predicted_logZ, logits
