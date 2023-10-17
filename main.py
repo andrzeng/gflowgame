@@ -32,12 +32,13 @@ if __name__ == '__main__':
     # torch.set_printoptions(precision=1)
 
     lr = 1e-4
-    decoder_layers = 4
-    encoder_layers = 4
-    embed_dim = 8
-    d_ff = 8
-    n_heads = 4
+    decoder_layers = 3
+    encoder_layers = 3
+    embed_dim = 32
+    d_ff = 32
+    n_heads = 8
     batch_size = 32
+    
     '''wandb.login()
     wandb.init(
         # set the wandb project where this run will be logged
@@ -55,13 +56,18 @@ if __name__ == '__main__':
     
     gfn = BoardGFLowNet(embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6)
     optimizer = torch.optim.AdamW(gfn.parameters(), lr=lr)
-
+    
+    total_parameters = 0
+    for param in gfn.parameters():
+        total_parameters += param.numel()
+    print(f"There are {total_parameters} parameters.")
     loss_history = []
     reward_history = []
 
     for batch in range(10000):
         total_loss = 0
         total_reward = 0
+        total_matching = 0
         for sample in range(batch_size):
 
             boards = random_board().unsqueeze(0)
@@ -94,8 +100,9 @@ if __name__ == '__main__':
                 if(new_moves[0] == 1):
                     break
             
-            reward = get_reward(boards)
+            reward, matching = get_reward(boards)
             total_reward += reward
+            total_matching += matching
             loss = loss_fn(starting_logz, reward, forward_probabilities)
             loss.backward(retain_graph=False)
             total_loss += loss
@@ -105,6 +112,6 @@ if __name__ == '__main__':
         optimizer.step()
         optimizer.zero_grad()
         # wandb.log({'batch': batch, 'loss': (total_loss/batch_size).item(), 'reward': (total_reward/batch_size).item()})
-        print(f'Batch {batch}, loss: {total_loss/batch_size}, reward: {total_reward/batch_size}')
+        print(f'Batch {batch}, loss: {total_loss/batch_size}, reward: {total_reward/batch_size}, Matching: {total_matching/batch_size}')
         loss_history.append((total_loss/batch_size).item())
         reward_history.append((total_reward/batch_size).item())

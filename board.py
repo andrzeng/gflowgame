@@ -50,7 +50,7 @@ def get_reward(boards, eps=1e-6):
     matching = (mismatch.flatten(1).count_nonzero(1))
     reward = max(0, matching - 6)
     reward = reward ** 2
-    reward = reward + 1
-    return torch.Tensor([reward])
+    reward = reward + eps
+    return torch.Tensor([reward]), matching
     # return (mismatch.flatten(1).count_nonzero(1)) ** 2 + 1
     return (mismatch.flatten(1).count_nonzero(1) + eps)/(16 + eps)
