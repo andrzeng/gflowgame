@@ -236,10 +236,10 @@ class PositionalEncoding(nn.Module):
         return x + self.pe[:,:x.size(1)]
     
 class BoardTransformer(nn.Module):
-    def __init__(self, d_embed, d_ff, n_heads, n_encoders, n_decoders, vocab_size):
+    def __init__(self, side_len, d_embed, d_ff, n_heads, n_encoders, n_decoders, vocab_size):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, d_embed)
-        self.board_embedding = nn.Embedding(16, d_embed)
+        self.board_embedding = nn.Embedding(side_len**2, d_embed)
         self.pe = PositionalEncoding(d_embed)
         self.encoder = Encoder(d_embed, d_ff, n_heads, n_encoders)
         self.decoder = Decoder(d_embed, d_ff, n_heads, n_decoders)
@@ -254,22 +254,28 @@ class BoardTransformer(nn.Module):
         decoder_emb = self.pe(self.embedding(move_seq))
         decoder_out = self.decoder(decoder_emb, encoder_out)
         prelogits = self.linear(decoder_out)
-        return encoder_out, prelogits.softmax(dim=2)     
+        return encoder_out, prelogits #.softmax(dim=2)     
 
 class BoardGFLowNet(nn.Module):
-    def __init__(self, d_embed, d_ff, n_heads, encoder_layers, decoder_layers, vocab_size):
+    def __init__(self, side_len, d_embed, d_ff, n_heads, encoder_layers, decoder_layers, vocab_size):
         super().__init__()
-        self.transformer = BoardTransformer(d_embed, d_ff, n_heads, encoder_layers, decoder_layers, vocab_size)
+        self.transformer = BoardTransformer(side_len, d_embed, d_ff, n_heads, encoder_layers, decoder_layers, vocab_size)
         self.logZ_predictor = nn.Sequential(
-            nn.Linear(d_embed * 16, 16),
-            nn.ReLU(),
-            nn.Linear(16, 8),
-            nn.ReLU(),
-            nn.Linear(8,1),
+            nn.Linear(d_embed * side_len ** 2, side_len),
+            nn.Tanh(),
+            nn.Linear(side_len, int(side_len/2)),
+            nn.Tanh(),
+            nn.Linear(int(side_len/2),1),
         )
+        
+        self.logz = nn.Parameter(torch.Tensor([1]), requires_grad=True)
 
     def forward(self, boards, moves):
         encoder_out, logits = self.transformer(boards, moves)
         encoder_out = encoder_out.flatten(start_dim=1)
+        
+        #print(encoder_out)
         predicted_logZ = self.logZ_predictor(encoder_out)
+        # predicted_logZ = self.logz
+        
         return predicted_logZ, logits
