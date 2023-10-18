@@ -129,8 +129,9 @@ if __name__ == '__main__':
             loss.backward(retain_graph=False)
             total_loss += loss
             print('\n\n\n')
-        #for param in gfn.logZ_predictor.parameters():
-        #    param.grad *= 10
+        for name, param in gfn.logZ_predictor.named_parameters():
+            param.grad *= 10
+            print(name, param.grad)
 
         # gfn.logz.grad *= 10
         optimizer.step()
