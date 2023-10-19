@@ -72,25 +72,17 @@ class SelfAttention(nn.Module):
         self.d_embed = d_embed
 
     def forward(self, embeddings, mask=None):
-        #print('embeddings shape: ', embeddings.shape)
         q = self.Wq(embeddings)
         k = self.Wk(embeddings)
         v = self.Wv(embeddings)
-        # print('q.shape: ',q.shape)
         attention = torch.matmul(q, k.transpose(2,1)) # transpose the embedding and sequence dims
         
         if(mask != None):
-            #print('Attention before mask:\n',attention)
             attention = attention + mask
 
-        #if(mask != None):
-            #print('Masked attention:\n', attention)
-            #print('Mask:\n', mask)
 
         attention = attention / math.sqrt(self.d_embed)
         attention = attention.softmax(dim=-1)
-        #if(mask != None):
-            #print('Attention after softmax:\n',attention)
         
         return attention @ v
     
@@ -158,7 +150,7 @@ class EncoderLayer(nn.Module):
         
         self.feed_forward = nn.Sequential(
             nn.Linear(d_embed, d_ff),
-            nn.ReLU(),
+            nn.ELU(),
             nn.Linear(d_ff, d_embed)
         )
 
@@ -190,7 +182,7 @@ class DecoderLayer(nn.Module):
         self.cross_mha = MultiheadCrossAttention(d_embed, n_heads)
         self.feed_forward = nn.Sequential(
                     nn.Linear(d_embed, d_ff),
-                    nn.ReLU(),
+                    nn.ELU(),
                     nn.Linear(d_ff, d_embed)
                 )
     def forward(self, decoder_embeddings, encoder_embeddings):
@@ -248,12 +240,12 @@ class BoardTransformer(nn.Module):
     def forward(self, board, move_seq):
         board = board.flatten(start_dim=1)
         board_embs = self.board_embedding(board)
-        print('Board embs:', board_embs)
+        print('Board embs:\n', board_embs)
         encoder_out = self.encoder(board_embs)
-        print('Encoder out: ', encoder_out)
+        print('Encoder out:\n', encoder_out)
         decoder_emb = self.pe(self.embedding(move_seq))
         decoder_out = self.decoder(decoder_emb, encoder_out)
-        print('Decoder out: ', decoder_out)
+        print('Decoder out:\n', decoder_out)
         prelogits = self.linear(decoder_out)
         return encoder_out, prelogits #.softmax(dim=2)     
 
