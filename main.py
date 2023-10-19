@@ -1,11 +1,3 @@
-'''
-
-TRY WITH 2X2 BOARD
-TRY WITH 3X3 BOARD
-
-
-
-'''
 
 import torch
 from model import BoardGFLowNet
