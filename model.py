@@ -199,7 +199,7 @@ class DecoderLayer(nn.Module):
         mask = torch.tril(torch.ones(L,L))
         mask[mask == 0] = -1e20
         mask[mask == 1] = 0
-        mask=None
+        
         masked_mha_out = self.masked_mha(decoder_embeddings, mask=mask)
         ln_out = self.feedforward_norm1(masked_mha_out + decoder_embeddings)
         cross_mha_out = self.cross_mha(encoder_embeddings, ln_out)
