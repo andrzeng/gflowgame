@@ -248,13 +248,14 @@ class BoardTransformer(nn.Module):
     def forward(self, board, move_seq):
         board = board.flatten(start_dim=1)
         board_embs = self.board_embedding(board)
-        # board_embs = torch.randn_like(board_embs)
+        print('Board embs:', board_embs)
         encoder_out = self.encoder(board_embs)
-
+        print('Encoder out: ', encoder_out)
         decoder_emb = self.pe(self.embedding(move_seq))
         decoder_out = self.decoder(decoder_emb, encoder_out)
+        print('Decoder out: ', decoder_out)
         prelogits = self.linear(decoder_out)
-        return board_embs, prelogits #.softmax(dim=2)     
+        return encoder_out, prelogits #.softmax(dim=2)     
 
 class BoardGFLowNet(nn.Module):
     def __init__(self, side_len, d_embed, d_ff, n_heads, encoder_layers, decoder_layers, vocab_size):
@@ -262,9 +263,9 @@ class BoardGFLowNet(nn.Module):
         self.transformer = BoardTransformer(side_len, d_embed, d_ff, n_heads, encoder_layers, decoder_layers, vocab_size)
         self.logZ_predictor = nn.Sequential(
             nn.Linear(d_embed * side_len ** 2, int(d_embed * side_len ** 2)//2),
-            nn.Tanh(),
+            nn.ELU(),
             nn.Linear(int(d_embed * side_len ** 2)//2, int(d_embed * side_len ** 2)//4),
-            nn.Tanh(),
+            nn.ELU(),
             nn.Linear(int(d_embed * side_len ** 2)//4,1),
         )
         
@@ -272,6 +273,7 @@ class BoardGFLowNet(nn.Module):
 
     def forward(self, boards, moves):
         board_embs, logits = self.transformer(boards, moves)
+        
         board_embs = board_embs.flatten(start_dim=1)
         
         #print(encoder_out)
