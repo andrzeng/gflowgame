@@ -97,9 +97,9 @@ if __name__ == '__main__':
                     mask = torch.ones_like(mask) * -1e20
                     mask[1] = 0
                     
-                print('Logits before mask: ', logits)
+                print('Logits before mask:\n', logits)
                 logits = torch.softmax(mask + logits, dim=0)
-                print('Masked logits:',logits)
+                print('Masked logits:\n',logits)
                 # print('Mask', mask)
                 
                 if(random.randint(0, 5) >= 0):               
@@ -122,7 +122,7 @@ if __name__ == '__main__':
             
             
             reward, matching = get_reward(boards)
-            print(f'Reward: {reward}, matching: {matching}')
+            print(f'Reward:\n{reward},\nmatching:\n{matching}')
             total_reward += reward
             total_matching += matching
             loss = loss_fn(starting_logz, reward, forward_probabilities)
@@ -130,14 +130,14 @@ if __name__ == '__main__':
             total_loss += loss
             print('\n\n\n')
         for name, param in gfn.logZ_predictor.named_parameters():
-            #param.grad *= 10
-            print(name, param)
+            param.grad *= 10
+            #print(name, param)
 
         # gfn.logz.grad *= 10
         optimizer.step()
         # print(gfn.logz)
         optimizer.zero_grad()
-        wandb.log({'batch': batch, 'loss': (total_loss/batch_size).item(), 'reward': (total_reward/batch_size).item(), 'matching': {(total_matching/batch_size).item()}, 'LogZ': gfn.logz.item()})
         print(f'Batch {batch}, loss: {total_loss/batch_size}, reward: {total_reward/batch_size}, Matching: {(total_matching/batch_size).item()}')
+        wandb.log({'batch': batch, 'loss': (total_loss/batch_size).item(), 'reward': (total_reward/batch_size).item(), 'num_matching': (total_matching/batch_size).item(), 'LogZ': gfn.logz.item()})
         loss_history.append((total_loss/batch_size).item())
         reward_history.append((total_reward/batch_size).item())
