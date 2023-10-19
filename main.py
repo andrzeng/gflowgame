@@ -35,14 +35,14 @@ if __name__ == '__main__':
     # torch.set_printoptions(precision=1)
 
     lr = 1e-2
-    decoder_layers = 1
-    encoder_layers = 1
-    embed_dim = 4
-    d_ff = 4
-    n_heads = 1
-    batch_size = 16
+    decoder_layers = 3
+    encoder_layers = 3
+    embed_dim = 16
+    d_ff = 16
+    n_heads = 4
+    batch_size = 1
     side_len = 2
-    max_steps = 8
+    max_steps = 2
     wandb.login()
     wandb.init(
         # set the wandb project where this run will be logged
@@ -73,8 +73,8 @@ if __name__ == '__main__':
         total_reward = 0
         total_matching = 0
         for sample in range(batch_size):
-            #boards = s_boards.clone()
-            boards = random_board(side_len=side_len).unsqueeze(0)
+            boards = s_boards.clone()
+            #boards = random_board(side_len=side_len).unsqueeze(0)
             moves = torch.zeros(1,1).type(torch.LongTensor)
             forward_probabilities = []
             for i in range(max_steps):
