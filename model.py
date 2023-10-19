@@ -240,12 +240,12 @@ class BoardTransformer(nn.Module):
     def forward(self, board, move_seq):
         board = board.flatten(start_dim=1)
         board_embs = self.board_embedding(board)
-        print('Board embs:\n', board_embs)
+        #print('Board embs:\n', board_embs)
         encoder_out = self.encoder(board_embs)
-        print('Encoder out:\n', encoder_out)
+        #print('Encoder out:\n', encoder_out)
         decoder_emb = self.pe(self.embedding(move_seq))
         decoder_out = self.decoder(decoder_emb, encoder_out)
-        print('Decoder out:\n', decoder_out)
+        #print('Decoder out:\n', decoder_out)
         prelogits = self.linear(decoder_out)
         return encoder_out, prelogits #.softmax(dim=2)     
 
