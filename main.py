@@ -43,11 +43,11 @@ if __name__ == '__main__':
     # torch.set_printoptions(precision=1)
 
     lr = 1e-2
-    decoder_layers = 3
-    encoder_layers = 3
-    embed_dim = 32
-    d_ff = 32
-    n_heads = 8
+    decoder_layers = 1
+    encoder_layers = 1
+    embed_dim = 4
+    d_ff = 4
+    n_heads = 1
     batch_size = 16
     side_len = 2
     max_steps = 8
@@ -97,7 +97,7 @@ if __name__ == '__main__':
                     mask = torch.ones_like(mask) * -1e20
                     mask[1] = 0
                     
-                # print('Logits before mask: ', logits)
+                print('Logits before mask: ', logits)
                 logits = torch.softmax(mask + logits, dim=0)
                 print('Masked logits:',logits)
                 # print('Mask', mask)
@@ -130,8 +130,8 @@ if __name__ == '__main__':
             total_loss += loss
             print('\n\n\n')
         for name, param in gfn.logZ_predictor.named_parameters():
-            param.grad *= 10
-            print(name, param.grad)
+            #param.grad *= 10
+            print(name, param)
 
         # gfn.logz.grad *= 10
         optimizer.step()
