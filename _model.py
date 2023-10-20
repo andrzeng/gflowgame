@@ -63,6 +63,12 @@ class Norm(nn.Module):
     def forward(self, x):
         return self.norm(x)
 
+'''class SelfAttention(nn.Module):
+    def __init__(self, dropout=0.1):
+        super().__init__()
+        self.dropout = nn.Dropout(dropout)
+        '''
+
 class SelfAttention(nn.Module):
     def __init__(self, d_embed):
         super().__init__()
@@ -79,7 +85,6 @@ class SelfAttention(nn.Module):
         
         if(mask != None):
             attention = attention + mask
-
 
         attention = attention / math.sqrt(self.d_embed)
         attention = attention.softmax(dim=-1)
@@ -141,6 +146,12 @@ class RMSNorm(torch.nn.Module):
         output = self._norm(x.float()).type_as(x)
         return output * self.weight
 
+'''
+    I don't take the norm of the embeddings before passing them into the encoder
+    Essentially the order in which the embeddings pass through the layer is jumbled. It appears that I made this mistake as well when writing the DecoderLayer class. Fix ASAP
+    
+'''
+
 class EncoderLayer(nn.Module):
     def __init__(self, d_embed, d_ff, n_heads):
         super().__init__()
@@ -155,11 +166,27 @@ class EncoderLayer(nn.Module):
         )
 
     def forward(self, embeddings):
-        attention_output = self.mha(embeddings)
+        '''B, L, D = embeddings.shape
+
+        mask = torch.tril(torch.ones(L,L))
+        mask[mask == 0] = -1e20
+        mask[mask == 1] = 0'''
+        
+
+
+        attention_output = self.mha(embeddings, mask=None)
+        #return attention_output
         ln_output = self.attention_norm(embeddings + attention_output)
         ff_out = self.feed_forward(ln_output)
+        
         return self.feedforward_norm(ln_output + ff_out)
     
+
+'''
+    I'm not norming the final outputs of the encoder
+    I positionally embed the encoder embeddings outside the actual encoder class
+
+'''
 class Encoder(nn.Module):
     def __init__(self, d_embed, d_ff, n_heads, n_encoders):
         super().__init__()
@@ -239,15 +266,17 @@ class BoardTransformer(nn.Module):
 
     def forward(self, board, move_seq):
         board = board.flatten(start_dim=1)
-        board_embs = self.board_embedding(board)
-        #print('Board embs:\n', board_embs)
+        board_embs = self.pe(self.board_embedding(board))
+        
+        print('Board embs:\n', board_embs)
         encoder_out = self.encoder(board_embs)
-        #print('Encoder out:\n', encoder_out)
+        print('Encoder out:\n', encoder_out)
         decoder_emb = self.pe(self.embedding(move_seq))
+        
         decoder_out = self.decoder(decoder_emb, encoder_out)
-        #print('Decoder out:\n', decoder_out)
+        print('Decoder out:\n', decoder_out)
         prelogits = self.linear(decoder_out)
-        return encoder_out, prelogits #.softmax(dim=2)     
+        return board_embs, prelogits #.softmax(dim=2)     
 
 class BoardGFLowNet(nn.Module):
     def __init__(self, side_len, d_embed, d_ff, n_heads, encoder_layers, decoder_layers, vocab_size):
