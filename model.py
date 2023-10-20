@@ -149,16 +149,16 @@ class RMSNorm(torch.nn.Module):
 '''
     I don't take the norm of the embeddings before passing them into the encoder
     Essentially the order in which the embeddings pass through the layer is jumbled. It appears that I made this mistake as well when writing the DecoderLayer class. Fix ASAP
-    
+
 '''
 
 class EncoderLayer(nn.Module):
-    def __init__(self, d_embed, d_ff, n_heads):
+    def __init__(self, d_embed, d_ff, n_heads, dropout=0.1):
         super().__init__()
         self.mha = MultiheadAttention(d_embed, n_heads)
         self.attention_norm = Norm(d_embed) # RMSNorm(d_embed)
         self.feedforward_norm = Norm(d_embed) # RMSNorm(d_embed)
-        
+        self.dropout = nn.Dropout(dropout)
         self.feed_forward = nn.Sequential(
             nn.Linear(d_embed, d_ff),
             nn.ELU(),
@@ -172,16 +172,14 @@ class EncoderLayer(nn.Module):
         mask[mask == 0] = -1e20
         mask[mask == 1] = 0'''
         
-
-
-        attention_output = self.mha(embeddings, mask=None)
-        #return attention_output
-        ln_output = self.attention_norm(embeddings + attention_output)
-        ff_out = self.feed_forward(ln_output)
+        normed_embs = self.attention_norm(embeddings)
+        embeddings = embeddings + self.dropout(self.mha(normed_embs))
         
-        return self.feedforward_norm(ln_output + ff_out)
-    
+        normed_embs = self.feedforward_norm(embeddings)
+        embeddings = embeddings + self.dropout(self.feed_forward(normed_embs))
 
+        return embeddings
+    
 '''
     I'm not norming the final outputs of the encoder
     I positionally embed the encoder embeddings outside the actual encoder class
@@ -191,21 +189,25 @@ class Encoder(nn.Module):
     def __init__(self, d_embed, d_ff, n_heads, n_encoders):
         super().__init__()
         self.encoders = nn.ModuleList([EncoderLayer(d_embed, d_ff, n_heads) for _ in range(n_encoders)])
-    
+        self.norm = Norm(d_embed)
     def forward(self, embeddings):
         for encoder in self.encoders:
             embeddings = encoder(embeddings)
         
-        return embeddings
-    
+        return self.norm(embeddings)
+
+
+'''
+No mask on cross attention
+'''
 class DecoderLayer(nn.Module):
-    def __init__(self, d_embed, d_ff, n_heads):
+    def __init__(self, d_embed, d_ff, n_heads, dropout=0.1):
         super().__init__()
         self.masked_mha = MultiheadAttention(d_embed, n_heads)
         self.attention_norm = Norm(d_embed)# RMSNorm(d_embed)
         self.feedforward_norm1 = Norm(d_embed)# RMSNorm(d_embed)
         self.feedforward_norm2 = Norm(d_embed)# RMSNorm(d_embed)
-        
+        self.dropout = nn.Dropout(dropout)
         self.cross_mha = MultiheadCrossAttention(d_embed, n_heads)
         self.feed_forward = nn.Sequential(
                     nn.Linear(d_embed, d_ff),
@@ -219,22 +221,27 @@ class DecoderLayer(nn.Module):
         mask[mask == 0] = -1e20
         mask[mask == 1] = 0
         
-        masked_mha_out = self.masked_mha(decoder_embeddings, mask=mask)
-        ln_out = self.feedforward_norm1(masked_mha_out + decoder_embeddings)
-        cross_mha_out = self.cross_mha(encoder_embeddings, ln_out)
-        ln_out = self.attention_norm(cross_mha_out + ln_out)
-        ff_out = self.feed_forward(ln_out)
-        return self.feedforward_norm2(ff_out + ln_out)
+        normed_embs = self.attention_norm(decoder_embeddings)
+        decoder_embeddings = decoder_embeddings + self.dropout(self.masked_mha(normed_embs, mask=mask))
+        
+        normed_embs = self.feedforward_norm1(decoder_embeddings)
+        decoder_embeddings = decoder_embeddings + self.dropout(self.cross_mha(encoder_embeddings, normed_embs))
+        
+        normed_embs = self.feedforward_norm2(decoder_embeddings)
+        decoder_embeddings = decoder_embeddings + self.dropout(self.feed_forward(normed_embs))
+                
+        return decoder_embeddings
     
 class Decoder(nn.Module):
     def __init__(self, d_embed, d_ff, n_heads, n_decoders):
         super().__init__()
         self.decoders = nn.ModuleList([DecoderLayer(d_embed, d_ff, n_heads) for _ in range(n_decoders)])
-    
+        self.norm = Norm(d_embed)
+
     def forward(self, decoder_embeddings, encoder_embeddings):
         for decoder in self.decoders:
             decoder_embeddings = decoder(decoder_embeddings, encoder_embeddings)
-        return decoder_embeddings
+        return self.norm(decoder_embeddings)
     
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model: int, max_len: int = 5000):
@@ -268,13 +275,13 @@ class BoardTransformer(nn.Module):
         board = board.flatten(start_dim=1)
         board_embs = self.pe(self.board_embedding(board))
         
-        print('Board embs:\n', board_embs)
+        #print('Board embs:\n', board_embs)
         encoder_out = self.encoder(board_embs)
-        print('Encoder out:\n', encoder_out)
+        #print('Encoder out:\n', encoder_out)
         decoder_emb = self.pe(self.embedding(move_seq))
         
         decoder_out = self.decoder(decoder_emb, encoder_out)
-        print('Decoder out:\n', decoder_out)
+        #print('Decoder out:\n', decoder_out)
         prelogits = self.linear(decoder_out)
         return board_embs, prelogits #.softmax(dim=2)     
 

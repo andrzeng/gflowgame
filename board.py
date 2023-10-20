@@ -56,13 +56,15 @@ def get_reward(boards, eps=1e-6):
     mismatch = (mismatch.flatten(1).count_nonzero(1))
     
     match = (match.flatten(1).count_nonzero(1))
-    reward = torch.exp(-mismatch)
     
-    '''
-    reward = (match / 3) ** 3
+    reward = torch.exp(-(mismatch)) 
+    
+    '''reward = (match / 3) ** 3
     # reward = reward ** 2
     reward = reward + eps
-    reward = match + 1'''
+    reward = match + 1
+    reward = match + eps
+    '''
     return torch.Tensor([reward]), match
     # return (mismatch.flatten(1).count_nonzero(1)) ** 2 + 1
     return (mismatch.flatten(1).count_nonzero(1) + eps)/(16 + eps)
