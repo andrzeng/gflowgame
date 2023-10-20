@@ -283,7 +283,7 @@ class BoardTransformer(nn.Module):
         decoder_out = self.decoder(decoder_emb, encoder_out)
         #print('Decoder out:\n', decoder_out)
         prelogits = self.linear(decoder_out)
-        return board_embs, prelogits #.softmax(dim=2)     
+        return encoder_out, prelogits #.softmax(dim=2)     
 
 class BoardGFLowNet(nn.Module):
     def __init__(self, side_len, d_embed, d_ff, n_heads, encoder_layers, decoder_layers, vocab_size):
