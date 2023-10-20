@@ -1,7 +1,8 @@
 
 import torch
-# from model import BoardGFLowNet
-from transformer import BoardGFLowNet
+from model import BoardGFLowNet
+#from transformer import BoardGFLowNet
+
 from board import random_board, get_reward, move, create_action_mask
 import wandb
 from torch.distributions.categorical import Categorical
@@ -12,7 +13,8 @@ def loss_fn(predicted_logZ, reward, forward_probabilities):
     
     log_Pf = sum(list(map(torch.log, forward_probabilities)))
     inner = predicted_logZ + log_Pf - torch.log(reward) 
-    print(f'Forward probs: {forward_probabilities}, log Pf: {log_Pf}, log reward: {torch.log(reward)}, predicted logZ: {predicted_logZ}, loss: {inner ** 2}')
+    #print(f'Forward probs: {forward_probabilities}, log Pf: {log_Pf}, log reward: {torch.log(reward)}, predicted logZ: {predicted_logZ}, loss: {inner ** 2}')
+    print(f'log Pf: {log_Pf}, log reward: {torch.log(reward)}, predicted logZ: {predicted_logZ}, loss: {inner ** 2}')
     return inner ** 2
 
 def main():
@@ -35,15 +37,15 @@ def main():
 if __name__ == '__main__':
     # torch.set_printoptions(precision=1)
 
-    lr = 1e-2
+    lr = 1e-4
     decoder_layers = 3
     encoder_layers = 3
     embed_dim = 16
     d_ff = 16
-    n_heads = 4
+    n_heads = 8
     batch_size = 16
     side_len = 2
-    max_steps = 20
+    max_steps = 3
     wandb.login()
     wandb.init(
         # set the wandb project where this run will be logged
@@ -57,8 +59,9 @@ if __name__ == '__main__':
             'n_heads': n_heads
         }
     )
-    # gfn = BoardGFLowNet(side_len, embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6)
-    gfn = BoardGFLowNet(side_len, embed_dim, n_heads, encoder_layers)
+    
+    gfn = BoardGFLowNet(side_len, embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6)
+    #gfn = BoardGFLowNet(side_len, embed_dim, n_heads, encoder_layers)
     optimizer = torch.optim.Adam(gfn.parameters(), lr=lr)
     s_boards = random_board(side_len=2).unsqueeze(0)
     s_boards = torch.Tensor([[2,1],
@@ -75,8 +78,8 @@ if __name__ == '__main__':
         total_reward = 0
         total_matching = 0
         for sample in range(batch_size):
-            #boards = s_boards.clone()
-            boards = random_board(side_len=side_len).unsqueeze(0)
+            boards = s_boards.clone()
+            #boards = random_board(side_len=side_len).unsqueeze(0)
             moves = torch.zeros(1,1).type(torch.LongTensor)
             forward_probabilities = []
             for i in range(max_steps):
@@ -85,7 +88,7 @@ if __name__ == '__main__':
                 if(i == 0):
                     starting_logz = logz
 
-                print('FULL LOGITS:\n',logits)
+                #print('FULL LOGITS:\n',logits)
                 last_logits = logits[0, -1, :]
                 mask = create_action_mask(boards[0])
                 if(i == max_steps-1):
@@ -113,6 +116,7 @@ if __name__ == '__main__':
                 for index, board in enumerate(boards):
                     boards[index] = move(board, new_moves[index])
                 if(new_moves[0] == 1):
+                    #print('Ending boards:\n', boards)
                     break
             
             
@@ -123,9 +127,9 @@ if __name__ == '__main__':
             loss = loss_fn(starting_logz, reward, forward_probabilities)
             loss.backward(retain_graph=False)
             total_loss += loss
-            print('\n\n\n')
-        for name, param in gfn.logZ_predictor.named_parameters():
-            param.grad *= 10
+            print('\n')
+        #for name, param in gfn.logZ_predictor.named_parameters():
+        #    param.grad *= 10
             #print(name, param)
 
         # gfn.logz.grad *= 10
