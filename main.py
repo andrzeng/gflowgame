@@ -37,15 +37,15 @@ def main():
 if __name__ == '__main__':
     # torch.set_printoptions(precision=1)
 
-    lr = 1e-4
-    decoder_layers = 3
-    encoder_layers = 3
+    lr = 1e-6
+    decoder_layers = 7
+    encoder_layers = 7
     embed_dim = 16
     d_ff = 16
     n_heads = 8
     batch_size = 16
-    side_len = 2
-    max_steps = 3
+    side_len = 5
+    max_steps = 50
     wandb.login()
     wandb.init(
         # set the wandb project where this run will be logged
@@ -78,8 +78,8 @@ if __name__ == '__main__':
         total_reward = 0
         total_matching = 0
         for sample in range(batch_size):
-            boards = s_boards.clone()
-            #boards = random_board(side_len=side_len).unsqueeze(0)
+            #boards = s_boards.clone()
+            boards = random_board(side_len=side_len).unsqueeze(0)
             moves = torch.zeros(1,1).type(torch.LongTensor)
             forward_probabilities = []
             for i in range(max_steps):
@@ -120,7 +120,7 @@ if __name__ == '__main__':
                     break
             
             
-            reward, matching = get_reward(boards)
+            reward, matching = get_reward(boards, len(forward_probabilities))
             print(f'Reward:\n{reward},\nmatching:\n{matching}')
             total_reward += reward
             total_matching += matching
@@ -128,8 +128,8 @@ if __name__ == '__main__':
             loss.backward(retain_graph=False)
             total_loss += loss
             print('\n')
-        #for name, param in gfn.logZ_predictor.named_parameters():
-        #    param.grad *= 10
+        for name, param in gfn.logZ_predictor.named_parameters():
+            param.grad *= 1e2
             #print(name, param)
 
         # gfn.logz.grad *= 10

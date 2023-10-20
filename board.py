@@ -46,7 +46,7 @@ def random_board(side_len=4):
         board = move(board, random.randint(2,5))
     return board
 
-def get_reward(boards, eps=1e-6):
+def get_reward(boards, num_moves, gamma=0.7, eps=1e-6):
     side_len = boards.shape[-1]
 
     mismatch = boards - torch.arange(0, side_len**2).reshape(side_len,side_len).expand_as(boards)
@@ -57,7 +57,7 @@ def get_reward(boards, eps=1e-6):
     
     match = (match.flatten(1).count_nonzero(1))
     
-    reward = torch.exp(-(mismatch)) 
+    reward = torch.exp(-(mismatch)) #* gamma ** (num_moves-1)
     
     '''reward = (match / 3) ** 3
     # reward = reward ** 2
