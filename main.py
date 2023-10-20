@@ -1,6 +1,7 @@
 
 import torch
-from model import BoardGFLowNet
+# from model import BoardGFLowNet
+from transformer import BoardGFLowNet
 from board import random_board, get_reward, move, create_action_mask
 import wandb
 from torch.distributions.categorical import Categorical
@@ -40,9 +41,9 @@ if __name__ == '__main__':
     embed_dim = 16
     d_ff = 16
     n_heads = 4
-    batch_size = 1
+    batch_size = 16
     side_len = 2
-    max_steps = 2
+    max_steps = 20
     wandb.login()
     wandb.init(
         # set the wandb project where this run will be logged
@@ -56,7 +57,8 @@ if __name__ == '__main__':
             'n_heads': n_heads
         }
     )
-    gfn = BoardGFLowNet(side_len, embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6)
+    # gfn = BoardGFLowNet(side_len, embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6)
+    gfn = BoardGFLowNet(side_len, embed_dim, n_heads, encoder_layers)
     optimizer = torch.optim.Adam(gfn.parameters(), lr=lr)
     s_boards = random_board(side_len=2).unsqueeze(0)
     s_boards = torch.Tensor([[2,1],
@@ -73,8 +75,8 @@ if __name__ == '__main__':
         total_reward = 0
         total_matching = 0
         for sample in range(batch_size):
-            boards = s_boards.clone()
-            #boards = random_board(side_len=side_len).unsqueeze(0)
+            #boards = s_boards.clone()
+            boards = random_board(side_len=side_len).unsqueeze(0)
             moves = torch.zeros(1,1).type(torch.LongTensor)
             forward_probabilities = []
             for i in range(max_steps):
@@ -83,27 +85,28 @@ if __name__ == '__main__':
                 if(i == 0):
                     starting_logz = logz
 
-                logits = logits[0, -1, :]
+                print('FULL LOGITS:\n',logits)
+                last_logits = logits[0, -1, :]
                 mask = create_action_mask(boards[0])
                 if(i == max_steps-1):
                     mask = torch.ones_like(mask) * -1e20
                     mask[1] = 0
                     
-                print('Logits before mask:\n', logits)
-                logits = torch.softmax(mask + logits, dim=0)
-                print('Masked logits:\n',logits)
+                print('Logits before mask:\n', last_logits)
+                last_logits = torch.softmax(mask + last_logits, dim=0)
+                print('Masked logits:\n',last_logits)
                 # print('Mask', mask)
                 
                 if(random.randint(0, 5) >= 0):               
-                    new_moves = Categorical(probs=logits.squeeze()).sample()
+                    new_moves = Categorical(probs=last_logits.squeeze()).sample()
                     new_moves = torch.Tensor([new_moves]).type(torch.LongTensor)
                 else:
-                    new_moves = torch.Tensor([logits.squeeze().argmax()]).type(torch.LongTensor)
-                    print(logits.squeeze())
+                    new_moves = torch.Tensor([last_logits.squeeze().argmax()]).type(torch.LongTensor)
+                    print(last_logits.squeeze())
                     # print(new_moves)
                 
                 
-                forward_probabilities.append(logits[new_moves])
+                forward_probabilities.append(last_logits[new_moves])
                 moves = torch.cat([moves, new_moves.unsqueeze(0)], dim=1)
                 
                 boards = boards.clone()
