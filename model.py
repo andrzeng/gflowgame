@@ -1,56 +1,3 @@
-'''
-
-**********************************************
-
-**********************************************
-
-**********************************************
-
-**********************************************
-**********************************************
-**********************************************
-**********************************************
-**********************************************
-
-
-ADD RELU!!!! DONT MAKE THIS SILLY MISTAKE AGAIN
-
-**********************************************
-**********************************************
-********************************************** YOU SILLY
-**********************************************GOOSE
-**********************************************
-**********************************************
-**********************************************
-
-
-Fix the heads issue as well
-
-add dropout
-
-compare with https://github.com/TranQuocTrinh/transformer/blob/main/models.py line by line
-
-
-worst case scenario: just copy someone elses code
-
-
-'''
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import torch
 import torch.nn as nn
 import math
@@ -62,12 +9,6 @@ class Norm(nn.Module):
 
     def forward(self, x):
         return self.norm(x)
-
-'''class SelfAttention(nn.Module):
-    def __init__(self, dropout=0.1):
-        super().__init__()
-        self.dropout = nn.Dropout(dropout)
-        '''
 
 class SelfAttention(nn.Module):
     def __init__(self, d_embed):
@@ -81,7 +22,7 @@ class SelfAttention(nn.Module):
         q = self.Wq(embeddings)
         k = self.Wk(embeddings)
         v = self.Wv(embeddings)
-        attention = torch.matmul(q, k.transpose(2,1)) # transpose the embedding and sequence dims
+        attention = torch.matmul(q, k.transpose(2,1)) 
         
         if(mask != None):
             attention = attention + mask
@@ -114,7 +55,7 @@ class CrossAttention(nn.Module):
         k = self.Wk(encoder_embs)
         v = self.Wv(encoder_embs)
         
-        attention = torch.matmul(q, k.transpose(2,1)) # transpose the embedding and sequence dims
+        attention = torch.matmul(q, k.transpose(2,1)) 
         if(mask != None):
             attention = attention + mask
         attention = attention / math.sqrt(self.d_embed)
@@ -132,32 +73,12 @@ class MultiheadCrossAttention(nn.Module):
         head_outputs = torch.concat([head(encoder_embs, decoder_embs, mask) for head in self.heads], dim=2)
         return self.combine(head_outputs)
 
-
-class RMSNorm(torch.nn.Module):
-    def __init__(self, dim: int, eps: float = 1e-6):
-        super().__init__()
-        self.eps = eps
-        self.weight = nn.Parameter(torch.ones(dim))
-
-    def _norm(self, x):
-        return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
-
-    def forward(self, x):
-        output = self._norm(x.float()).type_as(x)
-        return output * self.weight
-
-'''
-    I don't take the norm of the embeddings before passing them into the encoder
-    Essentially the order in which the embeddings pass through the layer is jumbled. It appears that I made this mistake as well when writing the DecoderLayer class. Fix ASAP
-
-'''
-
 class EncoderLayer(nn.Module):
     def __init__(self, d_embed, d_ff, n_heads, dropout=0.1):
         super().__init__()
         self.mha = MultiheadAttention(d_embed, n_heads)
-        self.attention_norm = Norm(d_embed) # RMSNorm(d_embed)
-        self.feedforward_norm = Norm(d_embed) # RMSNorm(d_embed)
+        self.attention_norm = Norm(d_embed)
+        self.feedforward_norm = Norm(d_embed) 
         self.dropout = nn.Dropout(dropout)
         self.feed_forward = nn.Sequential(
             nn.Linear(d_embed, d_ff),
@@ -166,12 +87,6 @@ class EncoderLayer(nn.Module):
         )
 
     def forward(self, embeddings):
-        '''B, L, D = embeddings.shape
-
-        mask = torch.tril(torch.ones(L,L))
-        mask[mask == 0] = -1e20
-        mask[mask == 1] = 0'''
-        
         normed_embs = self.attention_norm(embeddings)
         embeddings = embeddings + self.dropout(self.mha(normed_embs))
         
@@ -180,11 +95,6 @@ class EncoderLayer(nn.Module):
 
         return embeddings
     
-'''
-    I'm not norming the final outputs of the encoder
-    I positionally embed the encoder embeddings outside the actual encoder class
-
-'''
 class Encoder(nn.Module):
     def __init__(self, d_embed, d_ff, n_heads, n_encoders):
         super().__init__()
@@ -196,17 +106,13 @@ class Encoder(nn.Module):
         
         return self.norm(embeddings)
 
-
-'''
-No mask on cross attention
-'''
 class DecoderLayer(nn.Module):
     def __init__(self, d_embed, d_ff, n_heads, dropout=0.1):
         super().__init__()
         self.masked_mha = MultiheadAttention(d_embed, n_heads)
-        self.attention_norm = Norm(d_embed)# RMSNorm(d_embed)
-        self.feedforward_norm1 = Norm(d_embed)# RMSNorm(d_embed)
-        self.feedforward_norm2 = Norm(d_embed)# RMSNorm(d_embed)
+        self.attention_norm = Norm(d_embed)
+        self.feedforward_norm1 = Norm(d_embed)
+        self.feedforward_norm2 = Norm(d_embed)
         self.dropout = nn.Dropout(dropout)
         self.cross_mha = MultiheadCrossAttention(d_embed, n_heads)
         self.feed_forward = nn.Sequential(
@@ -274,16 +180,11 @@ class BoardTransformer(nn.Module):
     def forward(self, board, move_seq):
         board = board.flatten(start_dim=1)
         board_embs = self.pe(self.board_embedding(board))
-        
-        #print('Board embs:\n', board_embs)
         encoder_out = self.encoder(board_embs)
-        #print('Encoder out:\n', encoder_out)
         decoder_emb = self.pe(self.embedding(move_seq))
-        
         decoder_out = self.decoder(decoder_emb, encoder_out)
-        #print('Decoder out:\n', decoder_out)
         prelogits = self.linear(decoder_out)
-        return encoder_out, prelogits #.softmax(dim=2)     
+        return encoder_out, prelogits    
 
 class BoardGFLowNet(nn.Module):
     def __init__(self, side_len, d_embed, d_ff, n_heads, encoder_layers, decoder_layers, vocab_size):
@@ -296,16 +197,10 @@ class BoardGFLowNet(nn.Module):
             nn.ELU(),
             nn.Linear(int(d_embed * side_len ** 2)//4,1),
         )
-        
-        self.logz = nn.Parameter(torch.Tensor([1]), requires_grad=True)
 
     def forward(self, boards, moves):
         board_embs, logits = self.transformer(boards, moves)
-        
         board_embs = board_embs.flatten(start_dim=1)
-        
-        #print(encoder_out)
         predicted_logZ = self.logZ_predictor(board_embs)
-        # predicted_logZ = self.logz
         
         return predicted_logZ, logits

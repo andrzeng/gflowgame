@@ -1,142 +1,36 @@
-
-import torch
-from model import BoardGFLowNet
-#from transformer import BoardGFLowNet
-
-from board import random_board, get_reward, move, create_action_mask
 import wandb
-from torch.distributions.categorical import Categorical
 import argparse
-import random
-
-def loss_fn(predicted_logZ, reward, forward_probabilities):
-    
-    log_Pf = sum(list(map(torch.log, forward_probabilities)))
-    inner = predicted_logZ + log_Pf - torch.log(reward) 
-    #print(f'Forward probs: {forward_probabilities}, log Pf: {log_Pf}, log reward: {torch.log(reward)}, predicted logZ: {predicted_logZ}, loss: {inner ** 2}')
-    print(f'log Pf: {log_Pf}, log reward: {torch.log(reward)}, predicted logZ: {predicted_logZ}, loss: {inner ** 2}')
-    return inner ** 2
+from train import train
 
 def main():
-    # Training settings
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
-    parser.add_argument('--modelsize', type=str, default='1.3b', metavar='s',
-                        help='OPT model size to use')
-    parser.add_argument('--epochs', type=int, default=100, metavar='N',
-                        help='number of epochs to train (default: 14)')
-    parser.add_argument('--lr', type=float, default=1e-5, metavar='LR',
-                        help='learning rate (default: 1e-5)')
-    parser.add_argument('--gamma', type=float, default=0.97724, metavar='M',
-                        help='Learning rate step gamma (default: 0.97724)')
-    parser.add_argument('--batch_size', type=int, default=32, metavar='S',
-                        help='batch size to use')
+    parser.add_argument('--batches', type=int, default=1000, metavar='B',
+                        help='Number of batches to train for')
+    parser.add_argument('--batchsize', type=int, default=16, metavar='S',
+                        help='Batch size')
+    parser.add_argument('--lr', type=float, default=1e-4, metavar='LR',
+                        help='learning rate')
+    parser.add_argument('--encoders', type=int, default=3, metavar='E',
+                        help='Number of encoder layers')
+    parser.add_argument('--decoders', type=int, default=3, metavar='D',
+                        help='Number of decoder layers')
+    parser.add_argument('--embedding', type=int, default=32, metavar='M',
+                        help='Embedding dimension')
+    parser.add_argument('--heads', type=int, default=8, metavar='H',
+                        help='Number of heads')
+    parser.add_argument('--ff', type=int, default=16, metavar='F',
+                        help='Feedforward dimension')
+    parser.add_argument('--maxsteps', type=int, default=20, metavar='P',
+                        help='Maximum steps')
+    parser.add_argument('--boardwidth', type=int, default=3, metavar='L',
+                        help='Side length of the square board')
+    parser.add_argument('--checkpointfreq', type=int, default=10, metavar='C',
+                        help='How often to save checkpoints (in terms of batches)')
     args = parser.parse_args()
 
     return args
 
 if __name__ == '__main__':
-    # torch.set_printoptions(precision=1)
-
-    lr = 1e-6
-    decoder_layers = 7
-    encoder_layers = 7
-    embed_dim = 16
-    d_ff = 16
-    n_heads = 8
-    batch_size = 16
-    side_len = 5
-    max_steps = 50
     wandb.login()
-    wandb.init(
-        # set the wandb project where this run will be logged
-        project="Gflowgame",
-        config={
-            'lr': lr,
-            'batch_size': batch_size,
-            'decoder_layers': decoder_layers,
-            'encoder_layers': encoder_layers,
-            'embed_dim': embed_dim,
-            'n_heads': n_heads
-        }
-    )
-    
-    gfn = BoardGFLowNet(side_len, embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6)
-    #gfn = BoardGFLowNet(side_len, embed_dim, n_heads, encoder_layers)
-    optimizer = torch.optim.Adam(gfn.parameters(), lr=lr)
-    s_boards = random_board(side_len=2).unsqueeze(0)
-    s_boards = torch.Tensor([[2,1],
-                             [0,3]]).unsqueeze(0).type(torch.LongTensor)
-    total_parameters = 0
-    for param in gfn.parameters():
-        total_parameters += param.numel()
-    print(f"There are {total_parameters} parameters.")
-    loss_history = []
-    reward_history = []
-
-    for batch in range(10000):
-        total_loss = 0
-        total_reward = 0
-        total_matching = 0
-        for sample in range(batch_size):
-            #boards = s_boards.clone()
-            boards = random_board(side_len=side_len).unsqueeze(0)
-            moves = torch.zeros(1,1).type(torch.LongTensor)
-            forward_probabilities = []
-            for i in range(max_steps):
-                print(boards)
-                logz, logits = gfn(boards, moves)
-                if(i == 0):
-                    starting_logz = logz
-
-                #print('FULL LOGITS:\n',logits)
-                last_logits = logits[0, -1, :]
-                mask = create_action_mask(boards[0])
-                if(i == max_steps-1):
-                    mask = torch.ones_like(mask) * -1e20
-                    mask[1] = 0
-                    
-                print('Logits before mask:\n', last_logits)
-                last_logits = torch.softmax(mask + last_logits, dim=0)
-                print('Masked logits:\n',last_logits)
-                # print('Mask', mask)
-                
-                if(random.randint(0, 5) >= 0):               
-                    new_moves = Categorical(probs=last_logits.squeeze()).sample()
-                    new_moves = torch.Tensor([new_moves]).type(torch.LongTensor)
-                else:
-                    new_moves = torch.Tensor([last_logits.squeeze().argmax()]).type(torch.LongTensor)
-                    print(last_logits.squeeze())
-                    # print(new_moves)
-                
-                
-                forward_probabilities.append(last_logits[new_moves])
-                moves = torch.cat([moves, new_moves.unsqueeze(0)], dim=1)
-                
-                boards = boards.clone()
-                for index, board in enumerate(boards):
-                    boards[index] = move(board, new_moves[index])
-                if(new_moves[0] == 1):
-                    #print('Ending boards:\n', boards)
-                    break
-            
-            
-            reward, matching = get_reward(boards, len(forward_probabilities))
-            print(f'Reward:\n{reward},\nmatching:\n{matching}')
-            total_reward += reward
-            total_matching += matching
-            loss = loss_fn(starting_logz, reward, forward_probabilities)
-            loss.backward(retain_graph=False)
-            total_loss += loss
-            print('\n')
-        for name, param in gfn.logZ_predictor.named_parameters():
-            param.grad *= 1e2
-            #print(name, param)
-
-        # gfn.logz.grad *= 10
-        optimizer.step()
-        # print(gfn.logz)
-        optimizer.zero_grad()
-        print(f'Batch {batch}, loss: {total_loss/batch_size}, reward: {total_reward/batch_size}, Matching: {(total_matching/batch_size).item()}')
-        wandb.log({'batch': batch, 'loss': (total_loss/batch_size).item(), 'reward': (total_reward/batch_size).item(), 'num_matching': (total_matching/batch_size).item(), 'LogZ': gfn.logz.item()})
-        loss_history.append((total_loss/batch_size).item())
-        reward_history.append((total_reward/batch_size).item())
+    args = main()
+    train(args.lr, args.decoders, args.encoders, args.embedding, args.ff, args.heads, args.batchsize, args.boardwidth, args.maxsteps, args.batches, args.checkpointfreq)
