@@ -7,42 +7,51 @@ DIR_RIGHT = 4
 DIR_LEFT = 5
 
 def create_action_mask(board: torch.Tensor):
-    side_len = board.shape[-1]
-    gap_coord = torch.where(board == 0)
-    mask = torch.zeros(6)
-    mask[0] = -1e20
-    if(gap_coord[0] == 0):
-        mask[DIR_UP] = -1e20
-    if(gap_coord[0] == side_len-1):
-        mask[DIR_DOWN] = -1e20
-    if(gap_coord[1] == 0):
-        mask[DIR_LEFT] = -1e20
-    if(gap_coord[1] == side_len-1):
-        mask[DIR_RIGHT] = -1e20
+    batch_size, _, side_len = board.shape
+    gap_coord = torch.where(board == 0)[1:]
+    gap_coord = torch.stack(gap_coord).transpose(0,1)
+    mask = torch.zeros(batch_size, 6)
+
+    for i in range(batch_size):
+        mask[i,0] = -1e20
+        if(gap_coord[i,0] == 0):
+            mask[i,DIR_UP] = -1e20
+        if(gap_coord[i,0] == side_len-1):
+            mask[i,DIR_DOWN] = -1e20
+        if(gap_coord[i,1] == 0):
+            mask[i,DIR_LEFT] = -1e20
+        if(gap_coord[i,1] == side_len-1):
+            mask[i,DIR_RIGHT] = -1e20
     return mask
 
-def move(board: torch.Tensor, dir: int):
-    length = board.shape[0]
-    gap_coord = torch.where(board == 0)
-    if(dir == DIR_UP and gap_coord[0] > 0):
-        board[gap_coord[0], gap_coord[1]] = board[gap_coord[0]-1, gap_coord[1]] 
-        board[gap_coord[0]-1, gap_coord[1]] = 0
-    elif(dir == DIR_RIGHT and gap_coord[1] < length-1):
-        board[gap_coord[0], gap_coord[1]] = board[gap_coord[0], gap_coord[1]+1]
-        board[gap_coord[0], gap_coord[1]+1] = 0
-    if(dir == DIR_DOWN and gap_coord[0] < length-1):
-        board[gap_coord[0], gap_coord[1]] = board[gap_coord[0]+1, gap_coord[1]] 
-        board[gap_coord[0]+1, gap_coord[1]] = 0
-    elif(dir == DIR_LEFT and gap_coord[1] > 0):
-        board[gap_coord[0], gap_coord[1]] = board[gap_coord[0], gap_coord[1]-1]
-        board[gap_coord[0], gap_coord[1]-1] = 0
-    return board
+def move(boards: torch.Tensor, move_dirs: torch.Tensor):
+    _, _, side_length = boards.shape
+    gap_coord = torch.where(boards == 0)[1:]
+    gap_coord = torch.stack(gap_coord).transpose(0,1)
+    for i, board in enumerate(boards):
+        dir = move_dirs[i]
+        if(dir == DIR_UP and gap_coord[i,0] > 0):
+            board[gap_coord[i,0], gap_coord[i,1]] = board[gap_coord[i,0]-1, gap_coord[i,1]] 
+            board[gap_coord[i,0]-1, gap_coord[i,1]] = 0
+        elif(dir == DIR_RIGHT and gap_coord[i,1] < side_length-1):
+            board[gap_coord[i,0], gap_coord[i,1]] = board[gap_coord[i,0], gap_coord[i,1]+1]
+            board[gap_coord[i,0], gap_coord[i,1]+1] = 0
+        elif(dir == DIR_DOWN and gap_coord[i,0] < side_length-1):
+            board[gap_coord[i,0], gap_coord[i,1]] = board[gap_coord[i,0]+1, gap_coord[i,1]] 
+            board[gap_coord[i,0]+1, gap_coord[i,1]] = 0
+        elif(dir == DIR_LEFT and gap_coord[i,1] > 0):
+            board[gap_coord[i,0], gap_coord[i,1]] = board[gap_coord[i,0], gap_coord[i,1]-1]
+            board[gap_coord[i,0], gap_coord[i,1]-1] = 0
 
-def random_board(side_len=4):
-    board = torch.arange(0,side_len**2).reshape((side_len,side_len))
+    return boards
+
+def random_board(num, side_len):
+    boards = torch.arange(0,side_len**2).reshape((side_len,side_len)).repeat(num, 1,1)
     for _ in range(100):
-        board = move(board, random.randint(2,5))
-    return board
+        moves = torch.randint(2,6, (num,))
+        boards = move(boards, moves)
+    
+    return boards
 
 def get_reward(boards: torch.Tensor):
     side_len = boards.shape[-1]
