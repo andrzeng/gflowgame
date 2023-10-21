@@ -24,11 +24,17 @@ def create_action_mask(board: torch.Tensor):
             mask[i,DIR_RIGHT] = -1e20
     return mask
 
-def move(boards: torch.Tensor, move_dirs: torch.Tensor):
-    _, _, side_length = boards.shape
+def move(boards: torch.Tensor, move_dirs: torch.Tensor, finished_mask=None):
+    batch_size, _, side_length = boards.shape
     gap_coord = torch.where(boards == 0)[1:]
     gap_coord = torch.stack(gap_coord).transpose(0,1)
+    if(finished_mask == None):
+        finished_mask = torch.zeros(batch_size,1)
+    
     for i, board in enumerate(boards):
+        if(finished_mask[i] == 1):
+            continue
+
         dir = move_dirs[i]
         if(dir == DIR_UP and gap_coord[i,0] > 0):
             board[gap_coord[i,0], gap_coord[i,1]] = board[gap_coord[i,0]-1, gap_coord[i,1]] 
@@ -54,12 +60,12 @@ def random_board(num, side_len):
     return boards
 
 def get_reward(boards: torch.Tensor):
-    side_len = boards.shape[-1]
-    ground_truth = torch.arange(0, side_len**2).reshape(side_len,side_len)
+    batch_size, _, side_len = boards.shape
+    ground_truth = torch.arange(0, side_len**2).reshape(side_len,side_len).expand_as(boards)
     mismatch = boards - ground_truth
     match = mismatch == 0
     mismatch = mismatch != 0
     num_mismatch = mismatch.flatten(1).count_nonzero(1)
     num_match = match.flatten(1).count_nonzero(1)
     reward = torch.exp(-num_mismatch) 
-    return torch.Tensor([reward]), num_match
+    return reward, num_match
