@@ -46,6 +46,21 @@ def train(
     checkpoint_freq=10,
     ):
     
+    wandb.init(
+        project="Gflowgame",
+        config={
+            'lr': lr,
+            'batch_size': batch_size,
+            'decoder_layers': decoder_layers,
+            'encoder_layers': encoder_layers,
+            'embed_dim': embed_dim,
+            'n_heads': n_heads,
+            'd_ff': d_ff,
+            'side_len': side_len,
+            'max_steps': max_steps,
+        }
+    )
+    
     gfn = BoardGFLowNet(side_len, embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6)
     optimizer = torch.optim.Adam(gfn.parameters(), lr=lr)
 
