@@ -7,4 +7,6 @@
 wandb
 checkpoints*
 unused
+sampled*
+helloworld.ipynb
 .gitignore
