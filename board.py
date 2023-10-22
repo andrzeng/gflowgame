@@ -59,7 +59,7 @@ def random_board(num, side_len):
     
     return boards
 
-def get_reward(boards: torch.Tensor):
+def get_reward(boards: torch.Tensor, beta=1):
     batch_size, _, side_len = boards.shape
     ground_truth = torch.arange(0, side_len**2).reshape(side_len,side_len).expand_as(boards)
     mismatch = boards - ground_truth
@@ -67,5 +67,5 @@ def get_reward(boards: torch.Tensor):
     mismatch = mismatch != 0
     num_mismatch = mismatch.flatten(1).count_nonzero(1)
     num_match = match.flatten(1).count_nonzero(1)
-    reward = torch.exp(-num_mismatch) 
+    reward = torch.exp(-num_mismatch * beta) 
     return reward, num_match

@@ -44,8 +44,9 @@ def train(
     max_steps=20,
     total_batches=1000,
     checkpoint_freq=10,
+    beta=1,
     ):
-    
+
     wandb.init(
         project="Gflowgame",
         config={
@@ -58,6 +59,7 @@ def train(
             'd_ff': d_ff,
             'side_len': side_len,
             'max_steps': max_steps,
+            'beta': beta,
         }
     )
     
@@ -92,7 +94,7 @@ def train(
             boards = boards.clone()
             boards = move(boards, new_move, finished_mask=finished)
         
-        reward, matching = get_reward(boards)
+        reward, matching = get_reward(boards, beta)
         loss = loss_fn(predicted_logZ, reward, forward_probabilities)
         loss = torch.sum(loss)
         reward = torch.sum(reward)
