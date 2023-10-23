@@ -1,5 +1,5 @@
 
-This repository contains code for training a GFlowNet encoder-decoder transformer to solve the [Sliding puzzle](https://en.wikipedia.org/wiki/Sliding_puzzle). 
+This repository contains code for training a GFlowNet encoder-decoder transformer to sample trajectories from the [sliding puzzle](https://en.wikipedia.org/wiki/Sliding_puzzle) game. 
 To start training, run 
 
 ``python main.py``.
