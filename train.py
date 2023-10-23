@@ -69,15 +69,11 @@ def train(
     for batch in range(total_batches):
     
         boards = random_board(batch_size, side_len) 
-        finished = torch.zeros((batch_size, 1))
+        finished = torch.zeros((batch_size, 1)) # Keep track of which boards in the batch have sampled a terminating state
         moves = torch.zeros(batch_size, 1).type(torch.LongTensor)
-        forward_probabilities = torch.ones(batch_size, 1)
+        forward_probabilities = torch.ones(batch_size, 1) # Keep track of the forward probabilities along each board's trajectory
+        predicted_logZ, _ = gfn(boards, moves) 
 
-        predicted_logZ, _ = gfn(boards, moves)
-        batch_loss = 0
-        batch_reward = 0
-        batch_matching = 0
-        
         for i in range(max_steps):
             _, logits = gfn(boards, moves)
             new_move, move_prob = sample_move(boards, logits, i == max_steps-1)
@@ -95,20 +91,15 @@ def train(
             boards = move(boards, new_move, finished_mask=finished)
         
         reward, matching = get_reward(boards, beta)
-        loss = loss_fn(predicted_logZ, reward, forward_probabilities)
-        loss = torch.sum(loss)
-        reward = torch.sum(reward)
-        matching = torch.sum(matching)
-        loss.backward(retain_graph=False)
-        batch_reward += reward
-        batch_matching += matching
-        batch_loss += loss
+        loss = loss_fn(predicted_logZ, reward, forward_probabilities).sum()
+        loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-        batch_reward = batch_reward.item() / batch_size
-        batch_matching = batch_matching.item() / batch_size
-        batch_loss = batch_loss.item() / batch_size
-        print(f'Batch {batch}, loss: {batch_loss}, reward: {batch_reward}, Matching: {batch_matching}')
-        wandb.log({'batch': batch, 'loss': batch_loss, 'reward': batch_reward, 'num_matching': batch_matching})
+
+        reward = reward.sum() / batch_size
+        matching = matching.sum() / batch_size
+        loss = loss.item() / batch_size
+        print(f'Batch {batch}, loss: {loss}, reward: {reward}, Matching: {matching}')
+        wandb.log({'batch': batch, 'loss': loss, 'reward': reward, 'num_matching': matching})
         if((batch+1) % checkpoint_freq == 0):
             torch.save(gfn.state_dict(), f'checkpoints/model_step_{batch}.pt')
