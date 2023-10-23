@@ -3,7 +3,7 @@ import argparse
 from train import train
 
 def main():
-    parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+    parser = argparse.ArgumentParser(description='GFlowGame')
     parser.add_argument('--batches', type=int, default=1000, metavar='B',
                         help='Number of batches to train for')
     parser.add_argument('--batchsize', type=int, default=16, metavar='S',

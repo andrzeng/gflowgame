@@ -1,0 +1,9 @@
+
+This repository contains code for training a GFlowNet encoder-decoder transformer to solve the [Sliding puzzle](https://en.wikipedia.org/wiki/Sliding_puzzle). 
+To start training, run 
+
+``python main.py``.
+The board size can be modified using the ``--boardwidth`` argument. Training hyperparameters can also be modified. Their descriptions are found in ``main.py``.
+
+The reward function is $$e^{-n}$$, where $$n$$ is the number of mismatching squares between the final board and the solved board.
+
