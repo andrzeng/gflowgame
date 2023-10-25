@@ -1,5 +1,4 @@
 import torch
-import random
 
 DIR_UP = 2
 DIR_DOWN = 3
@@ -51,15 +50,15 @@ def move(boards: torch.Tensor, move_dirs: torch.Tensor, finished_mask=None):
 
     return boards
 
-def random_board(num, side_len):
+def random_board(num, side_len, num_random_moves=100):
     boards = torch.arange(0,side_len**2).reshape((side_len,side_len)).repeat(num, 1,1)
-    for _ in range(100):
-        moves = torch.randint(2,6, (num,))
+    for _ in range(num_random_moves):
+        moves = torch.randint(2,6,(num,))
         boards = move(boards, moves)
     
     return boards
 
-def get_reward(boards: torch.Tensor, beta=1):
+def get_reward(boards: torch.Tensor, beta=1.0):
     batch_size, _, side_len = boards.shape
     ground_truth = torch.arange(0, side_len**2).reshape(side_len,side_len).expand_as(boards)
     mismatch = boards - ground_truth

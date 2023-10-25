@@ -84,16 +84,16 @@ def train(
             boards = boards.clone()
             boards = move(boards, new_move, finished_mask=finished)
         
-        reward, matching = get_reward(boards, beta)
-        loss = loss_fn(predicted_logZ, reward, forward_probabilities).sum()
+        log_reward, matching = get_reward(boards, beta)
+        loss = loss_fn(predicted_logZ, log_reward, forward_probabilities).sum()
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
 
-        reward = reward.sum() / batch_size
+        log_reward = log_reward.sum() / batch_size
         matching = matching.sum() / batch_size
         loss = loss.item() / batch_size
-        print(f'Batch {batch}, loss: {loss}, reward: {reward}, Matching: {matching}')
-        wandb.log({'batch': batch, 'loss': loss, 'reward': reward, 'num_matching': matching})
+        print(f'Batch {batch}, loss: {loss}, log reward: {log_reward}, Matching: {matching}')
+        wandb.log({'batch': batch, 'loss': loss, 'log reward': log_reward, 'num_matching': matching})
         if((batch+1) % checkpoint_freq == 0):
             torch.save(gfn.state_dict(), f'checkpoints/model_step_{batch}.pt')
