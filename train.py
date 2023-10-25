@@ -29,7 +29,7 @@ def loss_fn(predicted_logZ: torch.Tensor,
             forward_probabilities: torch.Tensor):
     
     log_Pf = torch.log(forward_probabilities).sum(dim=1)
-    inner = predicted_logZ.squeeze() + log_Pf - torch.log(reward) 
+    inner = predicted_logZ.squeeze() + log_Pf - reward
     return inner ** 2
 
 def train(
@@ -77,14 +77,8 @@ def train(
         for i in range(max_steps):
             _, logits = gfn(boards, moves)
             new_move, move_prob = sample_move(boards, logits, i == max_steps-1)
-
-            for index in range(len(move_prob)):
-                if(finished[index] == 1):
-                    move_prob[index] = 1
-            for index, _move in enumerate(new_move):
-                if(_move == 1):
-                    finished[index] = 1
-
+            move_prob[torch.where(finished == 1)[0]] = 1
+            finished[torch.where(new_move == 1)] = 1
             forward_probabilities = torch.cat([forward_probabilities, move_prob.unsqueeze(1)], dim=1)
             moves = torch.cat([moves, new_move.unsqueeze(1)], dim=1)
             boards = boards.clone()
