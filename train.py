@@ -4,9 +4,9 @@ from model import BoardGFLowNet
 from board import random_board, get_reward, move, create_action_mask
 import wandb
 
-
 def sample_move(boards: torch.Tensor, 
-                logits: torch.Tensor, 
+                logits: torch.Tensor,
+                temperature: float, 
                 at_step_limit: bool):
     
     batch_size, _, _ = boards.shape
@@ -19,7 +19,7 @@ def sample_move(boards: torch.Tensor,
     else:
         mask = create_action_mask(boards)
     
-    last_logits = torch.softmax(mask + last_logits, dim=1)
+    last_logits = torch.softmax((mask + last_logits) * temperature, dim=1)
     new_moves = Categorical(probs=last_logits).sample()
     new_moves = torch.Tensor(new_moves).type(torch.LongTensor)
     return new_moves, last_logits[torch.arange(batch_size), new_moves]
@@ -45,6 +45,7 @@ def train(
     total_batches=1000,
     checkpoint_freq=10,
     beta=1,
+    temperature=1,
     ):
 
     wandb.init(
@@ -76,7 +77,7 @@ def train(
 
         for i in range(max_steps):
             _, logits = gfn(boards, moves)
-            new_move, move_prob = sample_move(boards, logits, i == max_steps-1)
+            new_move, move_prob = sample_move(boards, logits, temperature, i == max_steps-1)
             move_prob[torch.where(finished == 1)[0]] = 1
             finished[torch.where(new_move == 1)] = 1
             forward_probabilities = torch.cat([forward_probabilities, move_prob.unsqueeze(1)], dim=1)

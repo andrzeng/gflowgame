@@ -28,6 +28,8 @@ def main():
                         help='How often to save checkpoints (in terms of batches)')
     parser.add_argument('--beta', type=float, default=1, metavar='RT',
                         help='reward temperature')
+    parser.add_argument('--temperature', type=float, default=1, metavar='EE',
+                        help='sampling temperature')
     args = parser.parse_args()
 
     return args
@@ -35,4 +37,4 @@ def main():
 if __name__ == '__main__':
     wandb.login()
     args = main()
-    train(args.lr, args.decoders, args.encoders, args.embedding, args.ff, args.heads, args.batchsize, args.boardwidth, args.maxsteps, args.batches, args.checkpointfreq, args.beta)
+    train(args.lr, args.decoders, args.encoders, args.embedding, args.ff, args.heads, args.batchsize, args.boardwidth, args.maxsteps, args.batches, args.checkpointfreq, args.beta, args.temperature)
