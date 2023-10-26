@@ -19,8 +19,9 @@ def sample_move(boards: torch.Tensor,
     else:
         mask = create_action_mask(boards)
     
-    last_logits = torch.softmax((mask + last_logits) * temperature, dim=1)
-    new_moves = Categorical(probs=last_logits).sample()
+    last_logits_with_temp = torch.softmax((mask + last_logits) * temperature, dim=1)
+    last_logits = torch.softmax(mask + last_logits, dim=1)
+    new_moves = Categorical(probs=last_logits_with_temp).sample()
     new_moves = torch.Tensor(new_moves).type(torch.LongTensor)
     return new_moves, last_logits[torch.arange(batch_size), new_moves]
 
