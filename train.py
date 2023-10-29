@@ -71,10 +71,14 @@ def train(
     
     gfn = BoardGFLowNet(side_len, embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6)
     optimizer = torch.optim.Adam(gfn.parameters(), lr=lr)
+    starting_board = torch.Tensor([[3,1,2],
+                                   [6,4,5],
+                                   [7,8,0]]).unsqueeze(0).type(torch.LongTensor)
 
     for batch in range(total_batches):
     
-        boards = random_board(batch_size, side_len) 
+        # boards = random_board(batch_size, side_len) 
+        boards = starting_board.repeat(batch_size, 1, 1)
         finished = torch.zeros((batch_size, 1)) # Keep track of which boards in the batch have sampled a terminating state
         moves = torch.zeros(batch_size, 1).type(torch.LongTensor)
         forward_probabilities = torch.ones(batch_size, 1) # Keep track of the forward probabilities along each board's trajectory
