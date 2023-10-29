@@ -26,11 +26,15 @@ def sample_move(boards: torch.Tensor,
     return new_moves, last_logits[torch.arange(batch_size), new_moves]
 
 def loss_fn(predicted_logZ: torch.Tensor, 
-            reward: torch.Tensor, 
+            log_reward: torch.Tensor, 
             forward_probabilities: torch.Tensor):
-    
+    #print('predicted logZ:\n', predicted_logZ)
+    #print('log reward: \n', log_reward)
     log_Pf = torch.log(forward_probabilities).sum(dim=1)
-    inner = predicted_logZ.squeeze() + log_Pf - reward
+
+    #print('sum log of forward probabilities:\n', log_Pf)
+    inner = predicted_logZ.squeeze() + log_Pf - log_reward
+    #print('loss:\n', inner ** 2)
     return inner ** 2
 
 def train(
@@ -79,14 +83,20 @@ def train(
         for i in range(max_steps):
             _, logits = gfn(boards, moves)
             new_move, move_prob = sample_move(boards, logits, temperature, i == max_steps-1)
+            #print('last logits:\n', logits[:, -1, :])
+            #print('new move:\n', new_move)
+
             move_prob[torch.where(finished == 1)[0]] = 1
             finished[torch.where(new_move == 1)] = 1
             forward_probabilities = torch.cat([forward_probabilities, move_prob.unsqueeze(1)], dim=1)
             moves = torch.cat([moves, new_move.unsqueeze(1)], dim=1)
+            #print('boards before:\n', boards)
             boards = boards.clone()
             boards = move(boards, new_move, finished_mask=finished)
-        
+            #print('boards after:\n', boards)
+
         log_reward, matching = get_reward(boards, beta)
+        
         loss = loss_fn(predicted_logZ, log_reward, forward_probabilities).sum()
         loss.backward()
         optimizer.step()

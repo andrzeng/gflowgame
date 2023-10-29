@@ -201,6 +201,6 @@ class BoardGFLowNet(nn.Module):
     def forward(self, boards, moves):
         board_embs, logits = self.transformer(boards, moves)
         board_embs = board_embs.flatten(start_dim=1)
-        predicted_logZ = self.logZ_predictor(board_embs)
+        predicted_logZ = self.logZ_predictor(board_embs) * 10
         
         return predicted_logZ, logits
