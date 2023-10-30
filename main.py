@@ -34,6 +34,8 @@ def main():
                         help='Factor to multiply the predicted logZ before feeding it into the loss function')
     parser.add_argument('--name', type=str, default=None, metavar='NM',
                         help='Name of run (for Wandb logging purposes)')
+    parser.add_argument('--device', type=str, default='cpu', metavar='DV',
+                        help='Device (cuda:n or cpu)')
     args = parser.parse_args()
 
     return args
@@ -55,4 +57,5 @@ if __name__ == '__main__':
           args.beta, 
           args.temperature,
           args.logz_factor,
-          args.name)
+          args.name,
+          args.device)

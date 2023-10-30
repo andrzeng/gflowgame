@@ -5,7 +5,7 @@ DIR_DOWN = 3
 DIR_RIGHT = 4
 DIR_LEFT = 5
 
-def create_action_mask(board: torch.Tensor):
+def create_action_mask(board: torch.Tensor, device='cpu'):
     batch_size, _, side_len = board.shape
     gap_coord = torch.where(board == 0)[1:]
     gap_coord = torch.stack(gap_coord).transpose(0,1)
@@ -21,6 +21,8 @@ def create_action_mask(board: torch.Tensor):
             mask[i,DIR_LEFT] = -1e20
         if(gap_coord[i,1] == side_len-1):
             mask[i,DIR_RIGHT] = -1e20
+    
+    mask = mask.to(device)
     return mask
 
 def move(boards: torch.Tensor, move_dirs: torch.Tensor, finished_mask=None):
@@ -50,12 +52,13 @@ def move(boards: torch.Tensor, move_dirs: torch.Tensor, finished_mask=None):
 
     return boards
 
-def random_board(num, side_len, num_random_moves=100):
+def random_board(num, side_len, num_random_moves=100, device='cpu'):
     boards = torch.arange(0,side_len**2).reshape((side_len,side_len)).repeat(num, 1,1)
     for _ in range(num_random_moves):
         moves = torch.randint(2,6,(num,))
         boards = move(boards, moves)
     
+    boards = boards.to(device)
     return boards
 
 def get_reward(boards: torch.Tensor, beta=1.0):

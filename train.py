@@ -7,7 +7,8 @@ import wandb
 def sample_move(boards: torch.Tensor, 
                 logits: torch.Tensor,
                 temperature: float, 
-                at_step_limit: bool):
+                at_step_limit: bool,
+                device='cpu'):
     
     batch_size, _, _ = boards.shape
     last_logits = logits[:, -1, :]
@@ -17,7 +18,7 @@ def sample_move(boards: torch.Tensor,
         mask[1] = 0
         mask = mask.expand((batch_size, 6))
     else:
-        mask = create_action_mask(boards)
+        mask = create_action_mask(boards, device)
     
     last_logits_with_temp = torch.softmax((mask + last_logits) * temperature, dim=1)
     last_logits = torch.softmax(mask + last_logits, dim=1)
@@ -49,6 +50,7 @@ def train(
     temperature=1,
     logz_factor=10,
     name=None,
+    device='cpu',
     ):
 
     wandb.init(
@@ -69,21 +71,21 @@ def train(
         }
     )
     
-    gfn = BoardGFLowNet(side_len, embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6)
+    gfn = BoardGFLowNet(side_len, embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6).to(device)
     optimizer = torch.optim.Adam(gfn.parameters(), lr=lr)
 
     for batch in range(total_batches):
     
-        boards = random_board(batch_size, side_len) 
+        boards = random_board(batch_size, side_len, device) 
         finished = torch.zeros((batch_size, 1)) # Keep track of which boards in the batch have sampled a terminating state
         moves = torch.zeros(batch_size, 1).type(torch.LongTensor)
-        forward_probabilities = torch.ones(batch_size, 1) # Keep track of the forward probabilities along each board's trajectory
+        forward_probabilities = torch.ones(batch_size, 1).to(device) # Keep track of the forward probabilities along each board's trajectory
         predicted_logZ, _ = gfn(boards, moves) 
         predicted_logZ *= logz_factor
 
         for i in range(max_steps):
             _, logits = gfn(boards, moves)
-            new_move, move_prob = sample_move(boards, logits, temperature, i == max_steps-1)
+            new_move, move_prob = sample_move(boards, logits, temperature, i == max_steps-1, device)
             move_prob[torch.where(finished == 1)[0]] = 1
             finished[torch.where(new_move == 1)] = 1
             forward_probabilities = torch.cat([forward_probabilities, move_prob.unsqueeze(1)], dim=1)
