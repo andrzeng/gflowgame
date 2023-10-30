@@ -76,7 +76,7 @@ def train(
 
     for batch in range(total_batches):
     
-        boards = random_board(batch_size, side_len, device) 
+        boards = random_board(batch_size, side_len, device=device) 
         finished = torch.zeros((batch_size, 1)) # Keep track of which boards in the batch have sampled a terminating state
         moves = torch.zeros(batch_size, 1).type(torch.LongTensor)
         forward_probabilities = torch.ones(batch_size, 1).to(device) # Keep track of the forward probabilities along each board's trajectory
