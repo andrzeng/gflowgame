@@ -30,6 +30,10 @@ def main():
                         help='reward temperature')
     parser.add_argument('--temperature', type=float, default=1, metavar='EE',
                         help='sampling temperature')
+    parser.add_argument('--logz_factor', type=float, default=10, metavar='LZ',
+                        help='Factor to multiply the predicted logZ before feeding it into the loss function')
+    parser.add_argument('--name', type=str, default=None, metavar='NM',
+                        help='Name of run (for Wandb logging purposes)')
     args = parser.parse_args()
 
     return args
@@ -37,4 +41,18 @@ def main():
 if __name__ == '__main__':
     wandb.login()
     args = main()
-    train(args.lr, args.decoders, args.encoders, args.embedding, args.ff, args.heads, args.batchsize, args.boardwidth, args.maxsteps, args.batches, args.checkpointfreq, args.beta, args.temperature)
+    train(args.lr, 
+          args.decoders, 
+          args.encoders, 
+          args.embedding, 
+          args.ff, 
+          args.heads, 
+          args.batchsize, 
+          args.boardwidth, 
+          args.maxsteps, 
+          args.batches, 
+          args.checkpointfreq, 
+          args.beta, 
+          args.temperature,
+          args.logz_factor,
+          args.name)

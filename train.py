@@ -47,10 +47,13 @@ def train(
     checkpoint_freq=10,
     beta=1,
     temperature=1,
+    logz_factor=10,
+    name=None,
     ):
 
     wandb.init(
         project="Gflowgame",
+        name=name,
         config={
             'lr': lr,
             'batch_size': batch_size,
@@ -62,6 +65,7 @@ def train(
             'side_len': side_len,
             'max_steps': max_steps,
             'beta': beta,
+            'logz_factor': logz_factor,
         }
     )
     
@@ -75,6 +79,7 @@ def train(
         moves = torch.zeros(batch_size, 1).type(torch.LongTensor)
         forward_probabilities = torch.ones(batch_size, 1) # Keep track of the forward probabilities along each board's trajectory
         predicted_logZ, _ = gfn(boards, moves) 
+        predicted_logZ *= logz_factor
 
         for i in range(max_steps):
             _, logits = gfn(boards, moves)
