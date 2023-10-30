@@ -16,14 +16,14 @@ def sample_move(boards: torch.Tensor,
     if(at_step_limit):
         mask = torch.ones(6) * -1e20
         mask[1] = 0
-        mask = mask.expand((batch_size, 6))
+        mask = mask.expand((batch_size, 6)).to(device)
     else:
         mask = create_action_mask(boards, device)
     
     last_logits_with_temp = torch.softmax((mask + last_logits) * temperature, dim=1)
     last_logits = torch.softmax(mask + last_logits, dim=1)
     new_moves = Categorical(probs=last_logits_with_temp).sample()
-    new_moves = torch.Tensor(new_moves).type(torch.LongTensor)
+    new_moves = torch.Tensor(new_moves).type(torch.LongTensor).to(device)
     return new_moves, last_logits[torch.arange(batch_size), new_moves]
 
 def loss_fn(predicted_logZ: torch.Tensor, 
@@ -78,7 +78,7 @@ def train(
     
         boards = random_board(batch_size, side_len, device=device) 
         finished = torch.zeros((batch_size, 1)) # Keep track of which boards in the batch have sampled a terminating state
-        moves = torch.zeros(batch_size, 1).type(torch.LongTensor)
+        moves = torch.zeros(batch_size, 1).type(torch.LongTensor).to(device)
         forward_probabilities = torch.ones(batch_size, 1).to(device) # Keep track of the forward probabilities along each board's trajectory
         predicted_logZ, _ = gfn(boards, moves) 
         predicted_logZ *= logz_factor

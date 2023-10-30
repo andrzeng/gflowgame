@@ -64,6 +64,7 @@ def random_board(num, side_len, num_random_moves=100, device='cpu'):
 def get_reward(boards: torch.Tensor, beta=1.0):
     batch_size, _, side_len = boards.shape
     ground_truth = torch.arange(0, side_len**2).reshape(side_len,side_len).expand_as(boards)
+    ground_truth = ground_truth.to(boards.device)
     mismatch = boards - ground_truth
     match = mismatch == 0
     mismatch = mismatch != 0

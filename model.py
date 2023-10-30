@@ -123,7 +123,7 @@ class DecoderLayer(nn.Module):
     def forward(self, decoder_embeddings, encoder_embeddings):
         B, L, D = decoder_embeddings.shape
 
-        mask = torch.tril(torch.ones(L,L))
+        mask = torch.tril(torch.ones(L,L)).to(decoder_embeddings.device)
         mask[mask == 0] = -1e20
         mask[mask == 1] = 0
         
