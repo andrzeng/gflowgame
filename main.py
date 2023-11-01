@@ -22,6 +22,8 @@ def main():
                         help='Feedforward dimension')
     parser.add_argument('--maxsteps', type=int, default=20, metavar='P',
                         help='Maximum steps')
+    parser.add_argument('--logz_layers', type=int, default=10, metavar='LL',
+                        help='Number of layers in the MLP used for predicting the logZ')
     parser.add_argument('--boardwidth', type=int, default=3, metavar='L',
                         help='Side length of the square board')
     parser.add_argument('--checkpointfreq', type=int, default=10, metavar='C',
@@ -52,6 +54,7 @@ if __name__ == '__main__':
           args.batchsize, 
           args.boardwidth, 
           args.maxsteps, 
+          args.logz_layers,
           args.batches, 
           args.checkpointfreq, 
           args.beta, 

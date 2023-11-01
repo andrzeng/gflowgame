@@ -44,6 +44,7 @@ def train(
     batch_size=16,
     side_len=3,
     max_steps=20,
+    logz_layers=10,
     total_batches=1000,
     checkpoint_freq=10,
     beta=1,
@@ -71,7 +72,7 @@ def train(
         }
     )
     
-    gfn = BoardGFLowNet(side_len, embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6).to(device)
+    gfn = BoardGFLowNet(side_len, embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6, logz_layers=logz_layers, dropout=0.1).to(device)
     optimizer = torch.optim.Adam(gfn.parameters(), lr=lr)
 
     for batch in range(total_batches):

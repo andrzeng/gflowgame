@@ -187,20 +187,25 @@ class BoardTransformer(nn.Module):
         return encoder_out, prelogits    
 
 class BoardGFLowNet(nn.Module):
-    def __init__(self, side_len, d_embed, d_ff, n_heads, encoder_layers, decoder_layers, vocab_size):
+    def __init__(self, side_len, d_embed, d_ff, n_heads, encoder_layers, decoder_layers, vocab_size, logz_layers=10, dropout=0.1):
         super().__init__()
         self.transformer = BoardTransformer(side_len, d_embed, d_ff, n_heads, encoder_layers, decoder_layers, vocab_size)
-        self.logZ_predictor = nn.Sequential(
-            nn.Linear(d_embed * side_len ** 2, int(d_embed * side_len ** 2)//2),
-            nn.ELU(),
-            nn.Linear(int(d_embed * side_len ** 2)//2, int(d_embed * side_len ** 2)//4),
-            nn.ELU(),
-            nn.Linear(int(d_embed * side_len ** 2)//4,1),
-        )
+
+        self.logZ_predictor = nn.ModuleList([nn.Sequential(nn.Linear(d_embed * side_len ** 2, d_embed * side_len ** 2),
+                                             nn.ELU(),
+                                             nn.Dropout(dropout)
+                                             ) for _ in range(logz_layers)])  
+        self.logZ_predictor_proj = nn.Linear(d_embed * side_len ** 2, 1)
 
     def forward(self, boards, moves):
         board_embs, logits = self.transformer(boards, moves)
         board_embs = board_embs.flatten(start_dim=1)
-        predicted_logZ = self.logZ_predictor(board_embs)
+        
+        for layer in self.logZ_predictor:
+            board_embs = layer(board_embs)
+        predicted_logZ = self.logZ_predictor_proj(board_embs)
         
         return predicted_logZ, logits
+    
+
+
