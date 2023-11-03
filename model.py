@@ -186,6 +186,35 @@ class BoardTransformer(nn.Module):
         prelogits = self.linear(decoder_out)
         return encoder_out, prelogits    
 
+
+class logZPredictorLayer(nn.Module):
+    def __init__(self, d_ff, dropout):
+        super().__init__()
+        self.linear = nn.Linear(d_ff, d_ff)
+        self.activation = nn.ELU()
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, board_embeddings):
+        x = self.linear(board_embeddings)
+        x = self.activation(x)
+        x = self.dropout(x)
+
+        return x + board_embeddings
+
+class logZPredictor(nn.Module):
+    def __init__(self, n_layers, d_ff, dropout):
+        super().__init__()
+        self.layers = nn.ModuleList([logZPredictorLayer(d_ff, dropout) for _ in range(n_layers)])
+        self.logZ_predictor_proj = nn.Linear(d_ff, 1)
+
+    def forward(self, board_embeddings):
+        for layer in self.layers:
+            board_embeddings = layer(board_embeddings)
+
+        return self.logZ_predictor_proj(board_embeddings)
+
+
+
 class BoardGFLowNet(nn.Module):
     def __init__(self, side_len, d_embed, d_ff, n_heads, encoder_layers, decoder_layers, vocab_size, logz_layers=10, dropout=0.1):
         super().__init__()
