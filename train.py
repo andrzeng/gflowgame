@@ -72,7 +72,7 @@ def train(
         }
     )
     
-    gfn = BoardGFLowNet(side_len, embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6, logz_layers=logz_layers, dropout=0.1).to(device)
+    gfn = BoardGFLowNet(side_len, embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6, logz_layers=logz_layers, dropout=0.0).to(device)
     optimizer = torch.optim.Adam(gfn.parameters(), lr=lr)
 
     for batch in range(total_batches):
