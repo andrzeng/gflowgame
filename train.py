@@ -1,6 +1,6 @@
 import torch
 from torch.distributions.categorical import Categorical
-from model import BoardGFLowNet
+from model import BoardGFLowNet2
 from board import random_board, get_reward, move, create_action_mask
 import wandb
 
@@ -34,13 +34,17 @@ def loss_fn(predicted_logZ: torch.Tensor,
     inner = predicted_logZ.squeeze() + log_Pf - reward
     return inner ** 2
 
+def get_total_params(model):
+    total = 0
+    for param in model.parameters():
+        total += param.numel()
+    return total
+
 def train(
     lr=1e-4,
-    decoder_layers=3,
-    encoder_layers=3,
     embed_dim=32,
-    d_ff=32,
-    n_heads=8,
+    layers=10,
+    dropout=0.0,
     batch_size=16,
     side_len=3,
     max_steps=20,
@@ -59,11 +63,9 @@ def train(
         config={
             'lr': lr,
             'batch_size': batch_size,
-            'decoder_layers': decoder_layers,
-            'encoder_layers': encoder_layers,
             'embed_dim': embed_dim,
-            'n_heads': n_heads,
-            'd_ff': d_ff,
+            'n_layers': layers,
+            'dropout': dropout,
             'side_len': side_len,
             'max_steps': max_steps,
             'beta': beta,
@@ -71,25 +73,27 @@ def train(
         }
     )
     
-    gfn = BoardGFLowNet(side_len, embed_dim, d_ff, n_heads, encoder_layers, decoder_layers, 6).to(device)
+    gfn = BoardGFLowNet2(side_len, embed_dim, layers, max_steps, dropout)
+    print(f'There are {get_total_params(gfn)} parameters')
     optimizer = torch.optim.Adam(gfn.parameters(), lr=lr)
 
     for batch in range(total_batches):
     
         boards = random_board(batch_size, side_len, device=device) 
         finished = torch.zeros((batch_size, 1)) # Keep track of which boards in the batch have sampled a terminating state
-        moves = torch.zeros(batch_size, 1).type(torch.LongTensor).to(device)
+        move_num = 0
         forward_probabilities = torch.ones(batch_size, 1).to(device) # Keep track of the forward probabilities along each board's trajectory
-        predicted_logZ, _ = gfn(boards, moves) 
+        predicted_logZ, _ = gfn(boards, 0) 
         predicted_logZ *= logz_factor
 
         for i in range(max_steps):
-            _, logits = gfn(boards, moves)
+            _, logits = gfn(boards, move_num)
+            
+            move_num += 1
             new_move, move_prob = sample_move(boards, logits, temperature, i == max_steps-1, device)
             move_prob[torch.where(finished == 1)[0]] = 1
             finished[torch.where(new_move == 1)] = 1
             forward_probabilities = torch.cat([forward_probabilities, move_prob.unsqueeze(1)], dim=1)
-            moves = torch.cat([moves, new_move.unsqueeze(1)], dim=1)
             boards = boards.clone()
             boards = move(boards, new_move, finished_mask=finished)
         

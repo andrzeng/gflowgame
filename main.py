@@ -10,16 +10,12 @@ def main():
                         help='Batch size')
     parser.add_argument('--lr', type=float, default=1e-4, metavar='LR',
                         help='learning rate')
-    parser.add_argument('--encoders', type=int, default=3, metavar='E',
-                        help='Number of encoder layers')
-    parser.add_argument('--decoders', type=int, default=3, metavar='D',
-                        help='Number of decoder layers')
     parser.add_argument('--embedding', type=int, default=32, metavar='M',
                         help='Embedding dimension')
-    parser.add_argument('--heads', type=int, default=8, metavar='H',
-                        help='Number of heads')
-    parser.add_argument('--ff', type=int, default=32, metavar='F',
-                        help='Feedforward dimension')
+    parser.add_argument('--layers', type=int, default=10, metavar='LY',
+                        help='Number of layers')
+    parser.add_argument('--dropout', type=int, default=0.0, metavar='D',
+                        help='Dropout')
     parser.add_argument('--maxsteps', type=int, default=20, metavar='P',
                         help='Maximum steps')
     parser.add_argument('--boardwidth', type=int, default=3, metavar='L',
@@ -44,11 +40,9 @@ if __name__ == '__main__':
     wandb.login()
     args = main()
     train(args.lr, 
-          args.decoders, 
-          args.encoders, 
           args.embedding, 
-          args.ff, 
-          args.heads, 
+          args.layers,
+          args.dropout,
           args.batchsize, 
           args.boardwidth, 
           args.maxsteps, 
