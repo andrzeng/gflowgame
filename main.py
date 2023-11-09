@@ -1,6 +1,6 @@
 import wandb
 import argparse
-from train import train
+from train import train, train_alternate
 
 def main():
     parser = argparse.ArgumentParser(description='GFlowGame')
@@ -32,6 +32,9 @@ def main():
                         help='Name of run (for Wandb logging purposes)')
     parser.add_argument('--device', type=str, default='cpu', metavar='DV',
                         help='Device (cuda:n or cpu)')
+    parser.add_argument('--alternate', action='store_true')
+    parser.add_argument('--datafile', type=str, default='cpu', metavar='DF',
+                        help='Dataset file for offline training')
     args = parser.parse_args()
 
     return args
@@ -39,17 +42,35 @@ def main():
 if __name__ == '__main__':
     wandb.login()
     args = main()
-    train(args.lr, 
-          args.embedding, 
-          args.layers,
-          args.dropout,
-          args.batchsize, 
-          args.boardwidth, 
-          args.maxsteps, 
-          args.batches, 
-          args.checkpointfreq, 
-          args.beta, 
-          args.temperature,
-          args.logz_factor,
-          args.name,
-          args.device)
+    if(args.alternate):
+        train_alternate(
+            args.datafile,
+            args.lr, 
+            args.embedding, 
+            args.layers,
+            args.dropout,
+            args.batchsize, 
+            args.boardwidth, 
+            args.maxsteps, 
+            args.batches, 
+            args.checkpointfreq, 
+            args.beta, 
+            args.temperature,
+            args.logz_factor,
+            args.name,
+            args.device)
+    else:
+        train(args.lr, 
+            args.embedding, 
+            args.layers,
+            args.dropout,
+            args.batchsize, 
+            args.boardwidth, 
+            args.maxsteps, 
+            args.batches, 
+            args.checkpointfreq, 
+            args.beta, 
+            args.temperature,
+            args.logz_factor,
+            args.name,
+            args.device)

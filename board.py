@@ -61,6 +61,15 @@ def random_board(num, side_len, num_random_moves=100, device='cpu'):
     boards = boards.to(device)
     return boards
 
+def random_trajectories(num, side_len, num_random_moves=100, device='cpu'):
+    boards = torch.arange(0,side_len**2).reshape((side_len,side_len)).repeat(num, 1,1)
+    for _ in range(num_random_moves):
+        moves = torch.randint(2,6,(num,))
+        boards = move(boards, moves)
+    
+    boards = boards.to(device)
+    return boards
+
 def get_reward(boards: torch.Tensor, beta=1.0):
     batch_size, _, side_len = boards.shape
     ground_truth = torch.arange(0, side_len**2).reshape(side_len,side_len).expand_as(boards)
