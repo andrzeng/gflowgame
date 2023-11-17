@@ -13,12 +13,12 @@ def sample_move(boards: torch.Tensor,
                 device='cpu'):
     
     batch_size, _, _ = boards.shape
-    last_logits = logits[:, -1, :]
-    
+    # last_logits = logits[:, -1, :]
+    last_logits = logits[-1, :, :]
     if(at_step_limit):
-        '''mask = torch.ones(6) * -1e20
+        mask = torch.ones(6) * -1e20
         mask[1] = 0
-        mask = mask.expand((batch_size, 6)).to(device)'''
+        mask = mask.expand((batch_size, 6)).to(device)
         mask = create_action_mask(boards, device)
         last_logits_with_temp = torch.softmax((mask + last_logits) / temperature, dim=1)
         #print('mask:\n',mask)
@@ -28,7 +28,7 @@ def sample_move(boards: torch.Tensor,
         new_moves = torch.Tensor(new_moves).type(torch.LongTensor).to(device)
 
         # :)
-        new_moves = torch.ones_like(new_moves).type(torch.LongTensor).to(device)
+        # new_moves = torch.ones_like(new_moves).type(torch.LongTensor).to(device)
     else:
         mask = create_action_mask(boards, device)
         # mask[:,1] = -1e20
@@ -38,8 +38,15 @@ def sample_move(boards: torch.Tensor,
             #print('TEMPERED: ', tempered_logits)
         last_logits_with_temp = torch.softmax(tempered_logits, dim=1)
         #print('mask:\n',mask)
-        print('last logits with temp:\n', last_logits_with_temp[0])
+        #print('last logits with temp:\n', last_logits_with_temp[0])
+        #print(mask)
+        #print('LL.SHAPE: ', last_logits.shape)
+        #print(last_logits)
         last_logits = torch.softmax(mask + last_logits, dim=1)
+        #print('LL.shape 2: ', last_logits.shape)
+        #print(last_logits)
+        #sys.exit()
+
         new_moves = Categorical(probs=last_logits_with_temp).sample()
         new_moves = torch.Tensor(new_moves).type(torch.LongTensor).to(device)
         
