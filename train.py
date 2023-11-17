@@ -121,7 +121,7 @@ def train(
     for batch in range(total_batches):
 
         boards = random_board(batch_size, side_len, num_random_moves=15, device=device) 
-        boards = starting_board.repeat([batch_size, 1, 1])
+        # boards = starting_board.repeat([batch_size, 1, 1])
         finished = torch.zeros((batch_size, 1)) # Keep track of which boards in the batch have sampled a terminating state
         move_num = 0
         moves = torch.zeros(batch_size, 1).type(torch.LongTensor).to(device)
