@@ -7,7 +7,7 @@ class MLPLayer(nn.Module):
         super().__init__()
         self.linear = nn.Linear(entry_size, entry_size)
         self.dropout = nn.Dropout(dropout)
-        self.activation = nn.ELU()
+        self.activation = nn.Sigmoid()
     
     def forward(self, embeddings):
         x = self.linear(embeddings)
@@ -47,11 +47,21 @@ class BoardGFLowNet2(nn.Module):
         self.MLP = BoardMLP(side_len, d_embed, n_layers, max_steps, dropout)
         self.logz_predictor = nn.ModuleList([MLPLayer(side_len ** 2 * d_embed, dropout) for _ in range(n_layers)])
         self.logz_predictor_proj = nn.Linear(side_len ** 2 * d_embed, 1)
-
+        self.logz = nn.Parameter(torch.Tensor([10]), requires_grad=True)
     def forward(self, boards, move_num):
         board_embs, output_embs = self.MLP(boards, move_num)
         for layer in self.logz_predictor:
             board_embs = layer(board_embs)
         logz = self.logz_predictor_proj(board_embs)
 
+        # logz = self.logz
         return logz, output_embs.unsqueeze(0)
+
+class BoardDecoder(nn.Module):
+    def __init__(self, side_len, d_embed):
+        
+        pass
+
+    def forward(self, encoded_emb, true_embs):
+        
+        pass

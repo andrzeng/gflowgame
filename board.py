@@ -79,5 +79,5 @@ def get_reward(boards: torch.Tensor, beta=1.0):
     mismatch = mismatch != 0
     num_mismatch = mismatch.flatten(1).count_nonzero(1)
     num_match = match.flatten(1).count_nonzero(1)
-    reward = -num_mismatch * beta
-    return reward, num_match
+    log_reward = -num_mismatch * beta
+    return log_reward, num_match
