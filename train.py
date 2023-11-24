@@ -13,44 +13,27 @@ def sample_move(boards: torch.Tensor,
                 device='cpu'):
     
     batch_size, _, _ = boards.shape
-    # last_logits = logits[:, -1, :]
     last_logits = logits[-1, :, :]
     if(at_step_limit):
         mask = torch.ones(6) * -1e20
         mask[1] = 0
         mask = mask.expand((batch_size, 6)).to(device)
-        mask = create_action_mask(boards, device)
-        last_logits_with_temp = torch.softmax((mask + last_logits) / temperature, dim=1)
-        #print('mask:\n',mask)
+        last_logits_with_temp = torch.softmax((last_logits + mask) / temperature, dim=1)
         print('last logits with temp:\n', last_logits_with_temp[0])
-        last_logits = torch.softmax(mask + last_logits, dim=1)
+        last_logits = torch.softmax(last_logits + mask, dim=1)
         new_moves = Categorical(probs=last_logits_with_temp).sample()
         new_moves = torch.Tensor(new_moves).type(torch.LongTensor).to(device)
 
-        # :)
-        # new_moves = torch.ones_like(new_moves).type(torch.LongTensor).to(device)
     else:
         mask = create_action_mask(boards, device)
-        # mask[:,1] = -1e20
-        tempered_logits = (mask + last_logits) / temperature
+        tempered_logits = (last_logits + mask) / temperature
         if(forbid_stop):
             tempered_logits[:, 1] = -1e20
-            #print('TEMPERED: ', tempered_logits)
         last_logits_with_temp = torch.softmax(tempered_logits, dim=1)
-        #print('mask:\n',mask)
-        #print('last logits with temp:\n', last_logits_with_temp[0])
-        #print(mask)
-        #print('LL.SHAPE: ', last_logits.shape)
-        #print(last_logits)
-        last_logits = torch.softmax(mask + last_logits, dim=1)
-        #print('LL.shape 2: ', last_logits.shape)
-        #print(last_logits)
-        #sys.exit()
-
+        last_logits = torch.softmax(last_logits + mask, dim=1)
         new_moves = Categorical(probs=last_logits_with_temp).sample()
         new_moves = torch.Tensor(new_moves).type(torch.LongTensor).to(device)
         
-    
     return new_moves, last_logits[torch.arange(batch_size), new_moves]
 
 def sample_move_offline(
@@ -117,17 +100,15 @@ def train(
     
     gfn = BoardGFLowNet2(side_len, embed_dim, layers, max_steps, dropout)
     print(f'There are {get_total_params(gfn)} parameters')
-    optimizer = torch.optim.Adam(gfn.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(gfn.parameters(), lr=lr, weight_decay=1e-4)
     starting_board = torch.LongTensor([[0,3,1],
                                        [6,4,2],
                                        [7,8,5]]).unsqueeze(0)
     starting_board = torch.LongTensor([[3,0],
                                        [1,2]]).unsqueeze(0)
     
-
     for batch in range(total_batches):
-
-        boards = random_board(batch_size, side_len, num_random_moves=15, device=device) 
+        boards = random_board(batch_size, side_len, num_random_moves=100, device=device) 
         # boards = starting_board.repeat([batch_size, 1, 1])
         finished = torch.zeros((batch_size, 1)) # Keep track of which boards in the batch have sampled a terminating state
         move_num = 0
