@@ -16,12 +16,12 @@ class MLPLayer(nn.Module):
         return x + embeddings
 
 class BoardMLP(nn.Module):
-    def __init__(self, side_len, d_embed, n_layers=10, max_steps=20, dropout=0.1):
+    def __init__(self, side_len, d_embed, n_layers=10, max_steps=20, dropout=0.1, hiddenexpansion=3):
         super().__init__()
         self.board_embedding = nn.Embedding(side_len**2, d_embed)
         self.move_embedding = nn.Embedding(max_steps, d_embed)
         entry_size = (side_len ** 2 + 1) * d_embed   
-        self.MLP = nn.ModuleList([nn.Linear(entry_size, entry_size*3)] + [MLPLayer(entry_size * 3, dropout) for _ in range(n_layers-2)] + [nn.Linear(entry_size * 3, 6)])
+        self.MLP = nn.ModuleList([nn.Linear(entry_size, entry_size * hiddenexpansion)] + [MLPLayer(entry_size * hiddenexpansion, dropout) for _ in range(n_layers-2)] + [nn.Linear(entry_size * hiddenexpansion, 6)])
        
         
     def forward(self, 
@@ -41,10 +41,10 @@ class BoardMLP(nn.Module):
         return board_embs, embs
 
 class BoardGFLowNet2(nn.Module):
-    def __init__(self, side_len, d_embed, n_layers=10, max_steps=20, dropout=0.1):
+    def __init__(self, side_len, d_embed, n_layers=10, max_steps=20, dropout=0.1, hiddenexpansion=3):
         super().__init__()
-        self.MLP = BoardMLP(side_len, d_embed, n_layers, max_steps, dropout)
-        self.logz_predictor = nn.ModuleList([nn.Linear(side_len ** 2 * d_embed, side_len ** 2 * d_embed * 3)] + [MLPLayer(side_len ** 2 * d_embed * 3, dropout) for _ in range(n_layers-2)] + [nn.Linear(side_len ** 2 * d_embed * 3, 1)])
+        self.MLP = BoardMLP(side_len, d_embed, n_layers, max_steps, dropout, hiddenexpansion)
+        self.logz_predictor = nn.ModuleList([nn.Linear(side_len ** 2 * d_embed, side_len ** 2 * d_embed * hiddenexpansion)] + [MLPLayer(side_len ** 2 * d_embed * hiddenexpansion, dropout) for _ in range(n_layers-2)] + [nn.Linear(side_len ** 2 * d_embed * hiddenexpansion, 1)])
 
     def forward(self, boards, move_num):
         board_embs, output_embs = self.MLP(boards, move_num)
@@ -53,12 +53,3 @@ class BoardGFLowNet2(nn.Module):
         logz = board_embs
         
         return logz, output_embs.unsqueeze(0)
-
-class BoardDecoder(nn.Module):
-    def __init__(self, side_len, d_embed):
-        
-        pass
-
-    def forward(self, encoded_emb, true_embs):
-        
-        pass

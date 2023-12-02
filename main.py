@@ -1,6 +1,6 @@
 import wandb
 import argparse
-from train import train, train_alternate
+from train import train
 
 def main():
     parser = argparse.ArgumentParser(description='GFlowGame')
@@ -28,6 +28,8 @@ def main():
                         help='sampling temperature')
     parser.add_argument('--logz_factor', type=float, default=10, metavar='LZ',
                         help='Factor to multiply the predicted logZ before feeding it into the loss function')
+    parser.add_argument('--hiddenexpansion', type=int, default=3, metavar='LZ',
+                        help='Expansion factor of the hidden layer in MLPs compared to the input layer size')
     parser.add_argument('--name', type=str, default=None, metavar='NM',
                         help='Name of run (for Wandb logging purposes)')
     parser.add_argument('--device', type=str, default='cpu', metavar='DV',
@@ -42,35 +44,19 @@ def main():
 if __name__ == '__main__':
     wandb.login()
     args = main()
-    if(args.alternate):
-        train_alternate(
-            args.datafile,
-            args.lr, 
-            args.embedding, 
-            args.layers,
-            args.dropout,
-            args.batchsize, 
-            args.boardwidth, 
-            args.maxsteps, 
-            args.batches, 
-            args.checkpointfreq, 
-            args.beta, 
-            args.temperature,
-            args.logz_factor,
-            args.name,
-            args.device)
-    else:
-        train(args.lr, 
-            args.embedding, 
-            args.layers,
-            args.dropout,
-            args.batchsize, 
-            args.boardwidth, 
-            args.maxsteps, 
-            args.batches, 
-            args.checkpointfreq, 
-            args.beta, 
-            args.temperature,
-            args.logz_factor,
-            args.name,
-            args.device)
+    
+    train(args.lr, 
+        args.embedding, 
+        args.layers,
+        args.dropout,
+        args.batchsize, 
+        args.boardwidth, 
+        args.maxsteps, 
+        args.batches, 
+        args.checkpointfreq, 
+        args.beta, 
+        args.temperature,
+        args.logz_factor,
+        args.hiddenexpansion,
+        args.name,
+        args.device)
